@@ -1,6 +1,24 @@
 import re
 from robot_tokens import TOKEN_PATTERNS, ROBOT_KEYWORDS, get_token_type, LANGUAGE_INFO, VALID_COMPONENTS
 
+class Simbolo:
+    """Clase para representar un símbolo en la tabla de símbolos"""
+    def __init__(self, id, metodo, parametro, valor, es_declaracion=False):
+        self.id = id           # Identificador: r1, r2, etc.
+        self.metodo = metodo   # base, hombro, codo, garra, etc. o "DECLARACION"
+        self.parametro = parametro  # parámetro fijo como 1
+        self.valor = valor     # valor numérico asignado o "-" para declaraciones
+        self.es_declaracion = es_declaracion  # True si es una declaración de robot
+    
+    def __str__(self):
+        if self.es_declaracion:
+            return f"| {self.id:<3} | {'DECLARACION':<7} | {self.parametro:<9} | {self.valor:<5} |"
+        else:
+            return f"| {self.id:<3} | {self.metodo:<7} | {self.parametro:<9} | {self.valor:<5} |"
+    
+    def __repr__(self):
+        return self.__str__()
+
 class Token:
     """Clase para representar un token del lenguaje robótico"""
     def __init__(self, type_, value, line, column):
@@ -11,20 +29,6 @@ class Token:
     
     def __str__(self):
         return f"Token({self.type}, '{self.value}', {self.line}:{self.column})"
-    
-    def __repr__(self):
-        return self.__str__()
-
-class Simbolo:
-    """Clase para representar un símbolo en la tabla de símbolos"""
-    def __init__(self, id, metodo, parametro, valor):
-        self.id = id           # Identificador: r1, r2, etc.
-        self.metodo = metodo   # base, hombro, codo, garra, etc.
-        self.parametro = parametro  # parámetro fijo como 1
-        self.valor = valor     # valor numérico asignado
-    
-    def __str__(self):
-        return f"| {self.id:<3} | {self.metodo:<7} | {self.parametro:<9} | {self.valor:<5} |"
     
     def __repr__(self):
         return self.__str__()
@@ -106,6 +110,10 @@ class RobotParser:
                 return False
             
             current_robot = name_token.value
+            
+            # Agregar declaración de robot a la tabla de símbolos
+            simbolo_declaracion = Simbolo(current_robot, "DECLARACION", "-", "-", es_declaracion=True)
+            self.tabla_simbolos.append(simbolo_declaracion)
             
             # Inicializar lista de asignaciones para este robot si no existe
             if current_robot not in self.robots:
