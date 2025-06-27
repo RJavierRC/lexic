@@ -279,6 +279,14 @@ class RobotLexicalAnalyzer:
                 elif token_type == 'UNKNOWN':
                     # Reportar error léxico
                     self.errors.append(f"Error léxico en línea {self.current_line}, columna {self.current_column}: Caracter no reconocido '{token_value}'")
+                    # Crear token para el caracter desconocido
+                    token = Token(token_type, token_value, self.current_line, self.current_column)
+                    self.tokens.append(token)
+                    
+                    # Actualizar posición
+                    self.current_column += len(token_value)
+                    position = match.end()
+                    continue
                 
                 # Crear token (excepto para comentarios que se procesan pero no se almacenan como tokens activos)
                 if token_type not in ['COMMENT_SINGLE', 'COMMENT_MULTI', 'COMMENT_HASH']:
@@ -367,6 +375,16 @@ class RobotLexicalAnalyzer:
                 output.append(f"⚠️ {warning}")
             output.append("")
         
+        # Tokens desconocidos encontrados
+        unknown_tokens = [token for token in self.tokens if token.type == 'UNKNOWN']
+        if unknown_tokens:
+            output.append("=== 🚫 TOKENS DESCONOCIDOS ===")
+            output.append(f"{'Caracter':<10} {'Línea':<6} {'Columna':<8} {'Descripción'}")
+            output.append("-" * 45)
+            for token in unknown_tokens:
+                output.append(f"{repr(token.value):<10} {token.line:<6} {token.column:<8} Caracter no válido en el lenguaje")
+            output.append("")
+        
         # Información del parser
         if self.parser and self.parser.robots:
             output.append("=== INFORMACIÓN DE ROBOTS ===")
@@ -453,6 +471,7 @@ class RobotLexicalAnalyzer:
             'DOT': 'Punto de acceso',
             'COMMENT_SINGLE': 'Comentario de línea',
             'COMMENT_MULTI': 'Comentario de bloque',
-            'COMMENT_HASH': 'Comentario con #'
+            'COMMENT_HASH': 'Comentario con #',
+            'UNKNOWN': '❌ CARACTER DESCONOCIDO'
         }
         return descriptions.get(token.type, 'Token no clasificado')
