@@ -1,14 +1,24 @@
 import re
 from robot_tokens import TOKEN_PATTERNS, ROBOT_KEYWORDS, get_token_type, LANGUAGE_INFO, VALID_COMPONENTS
 
+# Definir rangos válidos para cada componente robótico
+COMPONENT_RANGES = {
+    'base': {'min': 0, 'max': 360, 'description': 'gira de 0 a 360°'},
+    'hombro': {'min': 0, 'max': 180, 'description': 'gira de 0 a 180°'},
+    'codo': {'min': 0, 'max': 180, 'description': 'gira de 0 a 180°'},
+    'garra': {'min': 0, 'max': 90, 'description': 'abre y cierra de 0 a 90°'},
+    'muneca': {'min': 0, 'max': 360, 'description': 'gira de 0 a 360°'}
+}
+
 class Simbolo:
     """Clase para representar un símbolo en la tabla de símbolos"""
-    def __init__(self, id, metodo, parametro, valor, es_declaracion=False):
+    def __init__(self, id, metodo, parametro, valor, es_declaracion=False, linea=None):
         self.id = id           # Identificador: r1, r2, etc.
         self.metodo = metodo   # base, hombro, codo, garra, etc. o "DECLARACION"
         self.parametro = parametro  # parámetro fijo como 1
         self.valor = valor     # valor numérico asignado o "-" para declaraciones
         self.es_declaracion = es_declaracion  # True si es una declaración de robot
+        self.linea = linea     # Número de línea donde aparece el símbolo
     
     def __str__(self):
         if self.es_declaracion:
@@ -83,12 +93,13 @@ class RobotParser:
                 # Buscar declaración de robot
                 if token.type == 'KEYWORD' and token.value.lower() == 'robot':
                     if not self.parse_robot_declaration():
-                        return False
+                        # Continuar aunque haya error en una declaración específica
+                        pass
                 else:
                     # Saltar tokens que no son declaraciones de robot ni instrucciones válidas
                     self.consume()
             
-            return True
+            return len(self.errors) == 0
             
         except Exception as e:
             self.errors.append(f"Error sintáctico: {str(e)}")
@@ -111,8 +122,8 @@ class RobotParser:
             
             current_robot = name_token.value
             
-            # Agregar declaración de robot a la tabla de símbolos
-            simbolo_declaracion = Simbolo(current_robot, "DECLARACION", "-", "-", es_declaracion=True)
+            # SIEMPRE agregar declaración de robot a la tabla de símbolos
+            simbolo_declaracion = Simbolo(current_robot, "DECLARACION", "-", "-", es_declaracion=True, linea=name_token.line)
             self.tabla_simbolos.append(simbolo_declaracion)
             
             # Inicializar lista de asignaciones para este robot si no existe
@@ -127,13 +138,14 @@ class RobotParser:
                 if next_token.type == 'KEYWORD' and next_token.value.lower() == 'robot':
                     break
                 
-                # Si es una instrucción para este robot, procesarla
+                # Si es una instrucción para algún robot, procesarla
                 if next_token.type == 'IDENTIFIER':
                     # Verificar si el identificador es el nombre del robot actual
                     if next_token.value == current_robot:
                         # Es una instrucción para este robot
                         if not self.parse_instruction(current_robot):
-                            return False
+                            # Continuar aunque haya error en la instrucción
+                            pass
                     else:
                         # Es otro identificador, podría ser nombre de otro robot sin declarar
                         # Salir del bucle para que el parser principal lo maneje
@@ -203,7 +215,7 @@ class RobotParser:
             })
             
             # Agregar a la tabla de símbolos
-            simbolo = Simbolo(name_token.value, component_token.value, 1, int(value))
+            simbolo = Simbolo(name_token.value, component_token.value, 1, int(value), linea=name_token.line)
             self.tabla_simbolos.append(simbolo)
             
             return True
@@ -213,7 +225,7 @@ class RobotParser:
             return False
 
 class RobotLexicalAnalyzer:
-    """Analizador léxico y sintáctico para lenguaje de brazo robótico"""
+    """Analizador léxico, sintáctico y semántico para lenguaje de brazo robótico"""
     
     def __init__(self):
         self.tokens = []
@@ -224,7 +236,9 @@ class RobotLexicalAnalyzer:
         self.components_found = set()
         self.commands_used = set()
         self.syntax_valid = False
+        self.semantic_valid = False
         self.parser = None
+        self.semantic_analyzer = None
         
     def analyze(self, source_code):
         """Analiza el código fuente y genera tokens"""
@@ -303,14 +317,22 @@ class RobotLexicalAnalyzer:
                 self.current_column += 1
                 position += 1
         
-        # Realizar análisis sintáctico si no hay errores léxicos
-        if not self.errors:
-            self.parser = RobotParser(self.tokens)
-            self.syntax_valid = self.parser.parse()
-            if self.parser.errors:
-                self.errors.extend(self.parser.errors)
+        # Realizar análisis sintáctico
+        self.parser = RobotParser(self.tokens)
+        self.syntax_valid = self.parser.parse()
+        if self.parser.errors:
+            self.errors.extend(self.parser.errors)
         
-        # Generar advertencias
+        # Realizar análisis semántico SIEMPRE que tengamos tabla de símbolos
+        if self.parser and self.parser.tabla_simbolos:
+            self.semantic_analyzer = SemanticAnalyzer()
+            self.semantic_valid = self.semantic_analyzer.analyze(self.parser)
+            if self.semantic_analyzer.errors:
+                self.errors.extend(self.semantic_analyzer.errors)
+            if self.semantic_analyzer.warnings:
+                self.warnings.extend(self.semantic_analyzer.warnings)
+        
+        # Generar advertencias adicionales
         self._generate_warnings()
         
         return self.tokens, self.errors
@@ -357,8 +379,23 @@ class RobotLexicalAnalyzer:
             output.append("INSTS → INST INSTS | ε")
             output.append("INST → ID.componente = valor")
             output.append("")
+            
+            # Estado del análisis semántico
+            if self.semantic_valid:
+                output.append("✅ ANÁLISIS SEMÁNTICO: CORRECTO")
+                output.append("El programa cumple con todas las reglas semánticas:")
+                output.append("• Declaración única de robots")
+                output.append("• Asignaciones únicas por componente")
+                output.append("• Valores dentro de rangos válidos")
+                output.append("• Robots correctamente declarados")
+                output.append("")
+            else:
+                output.append("❌ ANÁLISIS SEMÁNTICO: ERRORES ENCONTRADOS")
+                output.append("El programa no cumple con las reglas semánticas del lenguaje")
+                output.append("")
         else:
             output.append("❌ ANÁLISIS SINTÁCTICO: ERRORES ENCONTRADOS")
+            output.append("❌ ANÁLISIS SEMÁNTICO: NO EJECUTADO (requiere sintaxis correcta)")
             output.append("")
         
         # Errores léxicos y sintácticos
@@ -423,7 +460,19 @@ class RobotLexicalAnalyzer:
             if self.components_found:
                 output.append("=== COMPONENTES ROBÓTICOS DETECTADOS ===")
                 for component in sorted(self.components_found):
-                    output.append(f"🔧 {component.upper()}")
+                    if component in COMPONENT_RANGES:
+                        range_info = COMPONENT_RANGES[component]
+                        output.append(f"🔧 {component.upper()}: {range_info['description']} (rango: {range_info['min']}-{range_info['max']})")
+                    else:
+                        output.append(f"🔧 {component.upper()}")
+                output.append("")
+            
+            # Información semántica adicional
+            if self.semantic_analyzer:
+                output.append("=== VALIDACIONES SEMÁNTICAS ===")
+                output.append("📋 Rangos válidos para componentes:")
+                for component, range_info in COMPONENT_RANGES.items():
+                    output.append(f"   • {component}: {range_info['min']}-{range_info['max']}° ({range_info['description']})")
                 output.append("")
             
             # Estadísticas
@@ -475,3 +524,122 @@ class RobotLexicalAnalyzer:
             'UNKNOWN': '❌ CARACTER DESCONOCIDO'
         }
         return descriptions.get(token.type, 'Token no clasificado')
+
+class SemanticError(Exception):
+    """Excepción para errores semánticos"""
+    def __init__(self, message, line=None, column=None):
+        self.message = message
+        self.line = line
+        self.column = column
+        super().__init__(self.message)
+
+class SemanticAnalyzer:
+    """Analizador semántico para validar las reglas del lenguaje robótico"""
+    
+    def __init__(self):
+        self.errors = []
+        self.warnings = []
+        self.declared_robots = {}  # {nombre_robot: línea_declaración}
+        self.robot_assignments = {}  # {nombre_robot: {componente: [líneas_asignación]}}
+    
+    def analyze(self, parser):
+        """Realiza el análisis semántico basado en los resultados del parser sintáctico"""
+        self.errors = []
+        self.warnings = []
+        self.declared_robots = {}
+        self.robot_assignments = {}
+        
+        # 1. Verificar declaraciones de robots y asignaciones
+        self._check_robot_declarations(parser)
+        
+        # 2. Verificar unicidad de declaraciones
+        self._check_declaration_uniqueness(parser)
+        
+        # 3. Verificar unicidad de asignaciones
+        self._check_assignment_uniqueness(parser)
+        
+        # 4. Verificar rangos de valores
+        self._check_value_ranges(parser)
+        
+        # 5. Verificar robots no declarados
+        self._check_undeclared_robots(parser)
+        
+        return len(self.errors) == 0
+    
+    def _check_robot_declarations(self, parser):
+        """Verifica las declaraciones de robots en la tabla de símbolos"""
+        for simbolo in parser.tabla_simbolos:
+            if simbolo.es_declaracion:
+                robot_name = simbolo.id
+                if robot_name not in self.declared_robots:
+                    self.declared_robots[robot_name] = 'declarado'
+                    self.robot_assignments[robot_name] = {}
+    
+    def _check_declaration_uniqueness(self, parser):
+        """Verifica que no haya declaraciones duplicadas de robots"""
+        robot_declarations = {}
+        
+        for i, simbolo in enumerate(parser.tabla_simbolos):
+            if simbolo.es_declaracion:
+                robot_name = simbolo.id
+                if robot_name in robot_declarations:
+                    # Encontrada declaración duplicada
+                    linea_anterior = robot_declarations[robot_name]
+                    linea_actual = simbolo.linea if simbolo.linea else "desconocida"
+                    self.errors.append(f"Error semántico en línea {linea_actual}: Robot '{robot_name}' ya fue declarado previamente en línea {linea_anterior}")
+                else:
+                    robot_declarations[robot_name] = simbolo.linea if simbolo.linea else "desconocida"
+    
+    def _check_assignment_uniqueness(self, parser):
+        """Verifica que no haya asignaciones duplicadas para el mismo componente"""
+        for simbolo in parser.tabla_simbolos:
+            if not simbolo.es_declaracion:
+                robot_name = simbolo.id
+                component = simbolo.metodo
+                
+                # Inicializar estructuras si no existen
+                if robot_name not in self.robot_assignments:
+                    self.robot_assignments[robot_name] = {}
+                
+                if component not in self.robot_assignments[robot_name]:
+                    self.robot_assignments[robot_name][component] = []
+                
+                # Agregar esta asignación
+                self.robot_assignments[robot_name][component].append(simbolo)
+                
+                # Verificar si hay duplicados
+                if len(self.robot_assignments[robot_name][component]) > 1:
+                    lineas = [str(s.linea) if s.linea else "?" for s in self.robot_assignments[robot_name][component]]
+                    self.errors.append(f"Error semántico en líneas {', '.join(lineas)}: Asignación duplicada para '{robot_name}.{component}' - se encontraron múltiples asignaciones")
+    
+    def _check_value_ranges(self, parser):
+        """Verifica que los valores asignados estén dentro de los rangos válidos"""
+        for simbolo in parser.tabla_simbolos:
+            if not simbolo.es_declaracion:
+                component = simbolo.metodo
+                value = simbolo.valor
+                robot_name = simbolo.id
+                linea = simbolo.linea if simbolo.linea else "desconocida"
+                
+                if component in COMPONENT_RANGES:
+                    range_info = COMPONENT_RANGES[component]
+                    min_val = range_info['min']
+                    max_val = range_info['max']
+                    
+                    try:
+                        numeric_value = float(value)
+                        if numeric_value < min_val or numeric_value > max_val:
+                            self.errors.append(f"Error semántico en línea {linea}: Valor {numeric_value} para '{robot_name}.{component}' fuera del rango válido [{min_val}, {max_val}] - {range_info['description']}")
+                        elif numeric_value == min_val or numeric_value == max_val:
+                            self.warnings.append(f"Advertencia en línea {linea}: Valor {numeric_value} para '{robot_name}.{component}' está en el límite del rango válido")
+                    except ValueError:
+                        self.errors.append(f"Error semántico en línea {linea}: Valor '{value}' para '{robot_name}.{component}' no es un número válido")
+    
+    def _check_undeclared_robots(self, parser):
+        """Verifica que todos los robots usados en asignaciones hayan sido declarados"""
+        for simbolo in parser.tabla_simbolos:
+            if not simbolo.es_declaracion:
+                robot_name = simbolo.id
+                linea = simbolo.linea if simbolo.linea else "desconocida"
+                if robot_name not in self.declared_robots:
+                    self.errors.append(f"Error semántico en línea {linea}: Robot '{robot_name}' usado sin haber sido declarado")

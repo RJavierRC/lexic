@@ -62,7 +62,7 @@ class LexicalAnalyzerGUI:
     
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("Analizador Léxico y Sintáctico para Brazo Robótico")
+        self.root.title("Analizador Léxico, Sintáctico y Semántico para Brazo Robótico")
         self.root.geometry("1200x800")
         self.root.minsize(800, 600)
         
@@ -131,7 +131,7 @@ class LexicalAnalyzerGUI:
         top_frame.pack(fill=tk.X, pady=(0, 10))
         
         # Título
-        title_label = ttk.Label(top_frame, text="Analizador Léxico y Sintáctico para Brazo Robótico", style='Title.TLabel')
+        title_label = ttk.Label(top_frame, text="Analizador Léxico, Sintáctico y Semántico para Brazo Robótico", style='Title.TLabel')
         title_label.pack(side=tk.LEFT)
         
         # Frame de botones
@@ -299,7 +299,7 @@ class LexicalAnalyzerGUI:
             filename = os.path.basename(self.current_file)
             self.root.title(f"Analizador Léxico - {filename}")
         else:
-            self.root.title("Analizador Léxico y Sintáctico para Brazo Robótico")
+            self.root.title("Analizador Léxico, Sintáctico y Semántico para Brazo Robótico")
     
     def check_unsaved_changes(self):
         """Verifica si hay cambios sin guardar"""
@@ -310,25 +310,33 @@ class LexicalAnalyzerGUI:
         """Muestra información sobre la aplicación"""
         messagebox.showinfo(
             "Acerca de",
-            "Analizador Léxico y Sintáctico para Brazo Robótico\n\n"
+            "Analizador Léxico, Sintáctico y Semántico para Brazo Robótico\n\n"
             "Desarrollado con Python y tkinter\n"
-            "Versión 2.0\n\n"
+            "Versión 3.0\n\n"
             "Características:\n"
             "• Análisis léxico especializado para robótica\n"
             "• Análisis sintáctico con validación de gramática\n"
-            "• Detección de componentes del brazo\n"
-            "• Validación de comandos de movimiento\n"
+            "• Análisis semántico con validaciones avanzadas\n"
+            "• Detección de declaraciones duplicadas\n"
+            "• Validación de rangos de valores\n"
+            "• Detección de asignaciones duplicadas\n"
+            "• Verificación de robots no declarados\n"
+            "• Detección de tokens desconocidos\n"
             "• Estadísticas detalladas\n"
             "• Interfaz gráfica intuitiva\n\n"
             "Sintaxis soportada:\n"
             "Robot nombre_robot\n"
             "nombre_robot.componente = valor\n\n"
             "Componentes soportados:\n"
-            "• base, hombro, codo, garra, muñeca\n\n"
+            "• base: 0-360° (gira completa)\n"
+            "• hombro: 0-180° (articulación limitada)\n"
+            "• codo: 0-180° (articulación limitada)\n"
+            "• garra: 0-90° (apertura/cierre)\n"
+            "• muñeca: 0-360° (gira completa)\n\n"
             "Ejemplo:\n"
-            "Robot r3\n"
-            "r3.base = 120\n"
-            "r3.hombro = 60"
+            "Robot r1\n"
+            "r1.base = 120\n"
+            "r1.hombro = 60"
         )
     
     def run(self):
