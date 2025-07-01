@@ -7,11 +7,14 @@ ROBOT_KEYWORDS = {
     'Robot', 'robot',
     
     # Componentes del brazo
-    'base', 'hombro', 'codo', 'garra', 'muneca',
+    'base', 'hombro', 'codo', 'garra', 'muneca', 'velocidad',
     
     # Comandos de movimiento (sintaxis antigua - mantenida para compatibilidad)
     'girai', 'giraf', 'abre', 'cierra', 'mueve', 'rotara', 'posicion',
-    'velocidad', 'espera', 'inicio', 'fin', 'parar', 'continuar',
+    'parar', 'continuar',
+    
+    # Nuevos comandos para rutinas y control temporal
+    'espera', 'inicio', 'fin', 'repetir', 'veces',
     
     # Direcciones y posiciones
     'arriba', 'abajo', 'izquierda', 'derecha', 'adelante', 'atras',
@@ -30,7 +33,7 @@ ROBOT_KEYWORDS = {
 }
 
 # Componentes válidos del brazo robótico
-VALID_COMPONENTS = {'base', 'hombro', 'codo', 'garra', 'muneca'}
+VALID_COMPONENTS = {'base', 'hombro', 'codo', 'garra', 'muneca', 'velocidad', 'repetir', 'inicio', 'fin', 'espera'}
 
 # Definición de patrones de tokens usando expresiones regulares
 TOKEN_PATTERNS = [

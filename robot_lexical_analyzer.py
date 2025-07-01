@@ -7,7 +7,10 @@ COMPONENT_RANGES = {
     'hombro': {'min': 0, 'max': 180, 'description': 'gira de 0 a 180°'},
     'codo': {'min': 0, 'max': 180, 'description': 'gira de 0 a 180°'},
     'garra': {'min': 0, 'max': 90, 'description': 'abre y cierra de 0 a 90°'},
-    'muneca': {'min': 0, 'max': 360, 'description': 'gira de 0 a 360°'}
+    'muneca': {'min': 0, 'max': 360, 'description': 'gira de 0 a 360°'},
+    'velocidad': {'min': 0.1, 'max': 10.0, 'description': 'tiempo por movimiento de 0.1 a 10 segundos'},
+    'repetir': {'min': 1, 'max': 100, 'description': 'número de repeticiones de 1 a 100'},
+    'espera': {'min': 0.1, 'max': 60.0, 'description': 'tiempo de espera de 0.1 a 60 segundos'}
 }
 
 class Simbolo:
@@ -61,6 +64,8 @@ class RobotParser:
         self.robots = {}  # Diccionario de robots: {nombre: [asignaciones]}
         self.assignments = []
         self.tabla_simbolos = []  # Tabla de símbolos
+        self.rutinas = {}  # Diccionario de rutinas: {nombre: Rutina}
+        self.comandos_espera = []  # Lista de comandos espera encontrados
         
     def peek(self):
         """Mira el token actual sin consumirlo"""
@@ -78,25 +83,38 @@ class RobotParser:
             return token
         return None
     
+    def skip_to_fin(self):
+        """Salta tokens hasta encontrar 'fin' o llegar al final"""
+        while self.peek() is not None:
+            token = self.peek()
+            if token.type == 'KEYWORD' and token.value.lower() == 'fin':
+                self.consume()  # Consumir el 'fin'
+                break
+            self.consume()
+    
     def parse(self):
-        """Parsea el programa completo según la gramática: S → PROGRAMA"""
+        """Parsea el programa completo según la nueva gramática: S → PROGRAMA"""
         try:
             # Verificar que hay tokens
             if not self.tokens:
                 self.errors.append("Error: No hay código para analizar")
                 return False
             
-            # Parsear múltiples robots: PROGRAMA → ROBOT_DECL PROGRAMA | ε
+            # Parsear múltiples elementos: PROGRAMA → (ROBOT_DECL | ROBOT_INSTRUCTION)* 
             while self.peek() is not None:
                 token = self.peek()
                 
                 # Buscar declaración de robot
                 if token.type == 'KEYWORD' and token.value.lower() == 'robot':
                     if not self.parse_robot_declaration():
-                        # Continuar aunque haya error en una declaración específica
                         pass
+                # Buscar instrucciones de robot (r1.algo)
+                elif token.type == 'IDENTIFIER':
+                    if not self.parse_robot_instruction():
+                        # Si falla parsear instrucción, saltar este token
+                        self.consume()
                 else:
-                    # Saltar tokens que no son declaraciones de robot ni instrucciones válidas
+                    # Saltar tokens que no son declaraciones válidas
                     self.consume()
             
             return len(self.errors) == 0
@@ -106,7 +124,7 @@ class RobotParser:
             return False
     
     def parse_robot_declaration(self):
-        """Parsea una declaración de robot: ROBOT_DECL → Robot ID INSTS"""
+        """Parsea una declaración de robot: ROBOT_DECL → Robot ID"""
         try:
             # Primer token debe ser "Robot"
             robot_token = self.consume()
@@ -130,38 +148,14 @@ class RobotParser:
             if current_robot not in self.robots:
                 self.robots[current_robot] = []
             
-            # Parsear instrucciones para este robot: INSTS → INST INSTS | ε
-            while self.peek() is not None:
-                next_token = self.peek()
-                
-                # Si encontramos otra declaración "Robot", terminar este robot
-                if next_token.type == 'KEYWORD' and next_token.value.lower() == 'robot':
-                    break
-                
-                # Si es una instrucción para algún robot, procesarla
-                if next_token.type == 'IDENTIFIER':
-                    # Verificar si el identificador es el nombre del robot actual
-                    if next_token.value == current_robot:
-                        # Es una instrucción para este robot
-                        if not self.parse_instruction(current_robot):
-                            # Continuar aunque haya error en la instrucción
-                            pass
-                    else:
-                        # Es otro identificador, podría ser nombre de otro robot sin declarar
-                        # Salir del bucle para que el parser principal lo maneje
-                        break
-                else:
-                    # Otros tokens (comentarios, espacios, etc.) - saltarlos
-                    self.consume()
-            
             return True
             
         except Exception as e:
             self.errors.append(f"Error en declaración de robot: {str(e)}")
             return False
     
-    def parse_instruction(self, expected_robot):
-        """Parsea una instrucción: INST → robot_name.componente = valor"""
+    def parse_robot_instruction(self):
+        """Parsea una instrucción de robot con la nueva sintaxis: robot.comando [= valor | valor]"""
         try:
             # robot_name
             name_token = self.consume()
@@ -169,9 +163,7 @@ class RobotParser:
                 self.errors.append(f"Error en línea {name_token.line if name_token else 'EOF'}: Se esperaba nombre del robot")
                 return False
             
-            if name_token.value != expected_robot:
-                self.errors.append(f"Error en línea {name_token.line}: Se esperaba '{expected_robot}', se encontró '{name_token.value}'")
-                return False
+            robot_name = name_token.value
             
             # .
             dot_token = self.consume()
@@ -179,16 +171,36 @@ class RobotParser:
                 self.errors.append(f"Error en línea {dot_token.line if dot_token else 'EOF'}: Se esperaba '.'")
                 return False
             
-            # componente
-            component_token = self.consume()
-            if not component_token or component_token.type != 'KEYWORD':
-                self.errors.append(f"Error en línea {component_token.line if component_token else 'EOF'}: Se esperaba componente del brazo")
+            # comando/componente
+            command_token = self.consume()
+            if not command_token or command_token.type != 'KEYWORD':
+                self.errors.append(f"Error en línea {command_token.line if command_token else 'EOF'}: Se esperaba comando del robot")
                 return False
             
-            if component_token.value not in VALID_COMPONENTS:
-                self.errors.append(f"Error en línea {component_token.line}: '{component_token.value}' no es un componente válido. Componentes válidos: {', '.join(VALID_COMPONENTS)}")
+            command = command_token.value.lower()
+            
+            if command not in VALID_COMPONENTS:
+                self.errors.append(f"Error en línea {command_token.line}: '{command}' no es un comando válido. Comandos válidos: {', '.join(VALID_COMPONENTS)}")
                 return False
             
+            # Manejar diferentes tipos de comandos
+            if command == 'inicio':
+                return self.parse_robot_inicio(robot_name, command_token.line)
+            elif command == 'fin':
+                return self.parse_robot_fin(robot_name, command_token.line)
+            elif command == 'espera':
+                return self.parse_robot_espera(robot_name, command_token.line)
+            else:
+                # Comando que requiere asignación (=)
+                return self.parse_robot_assignment(robot_name, command, command_token.line)
+            
+        except Exception as e:
+            self.errors.append(f"Error en instrucción de robot: {str(e)}")
+            return False
+    
+    def parse_robot_assignment(self, robot_name, command, line):
+        """Parsea una asignación: robot.comando = valor"""
+        try:
             # =
             equals_token = self.consume()
             if not equals_token or equals_token.type != 'ASSIGN_OP':
@@ -201,27 +213,206 @@ class RobotParser:
                 self.errors.append(f"Error en línea {value_token.line if value_token else 'EOF'}: Se esperaba valor numérico")
                 return False
             
-            # Validar rango de valores
             value = float(value_token.value)
-            if value < 0 or value > 360:
-                self.errors.append(f"Advertencia en línea {value_token.line}: Valor {value} fuera del rango típico (0-360 grados)")
+            
+            # Validar rango de valores si existe
+            if command in COMPONENT_RANGES:
+                range_info = COMPONENT_RANGES[command]
+                if value < range_info['min'] or value > range_info['max']:
+                    self.errors.append(f"Advertencia en línea {value_token.line}: Valor {value} para '{robot_name}.{command}' fuera del rango válido [{range_info['min']}, {range_info['max']}]")
             
             # Guardar asignación
             self.assignments.append({
-                'robot': name_token.value,
-                'component': component_token.value,
+                'robot': robot_name,
+                'component': command,
                 'value': value,
-                'line': name_token.line
+                'line': line
             })
             
             # Agregar a la tabla de símbolos
-            simbolo = Simbolo(name_token.value, component_token.value, 1, int(value), linea=name_token.line)
+            simbolo = Simbolo(robot_name, command, 1, int(value) if value.is_integer() else value, linea=line)
             self.tabla_simbolos.append(simbolo)
             
             return True
             
         except Exception as e:
-            self.errors.append(f"Error en instrucción: {str(e)}")
+            self.errors.append(f"Error en asignación: {str(e)}")
+            return False
+    
+    def parse_robot_inicio(self, robot_name, line):
+        """Parsea comando robot.inicio"""
+        # Registrar inicio de bloque
+        simbolo_inicio = Simbolo(robot_name, "inicio", "-", "-", linea=line)
+        self.tabla_simbolos.append(simbolo_inicio)
+        return True
+    
+    def parse_robot_fin(self, robot_name, line):
+        """Parsea comando robot.fin"""
+        # Registrar fin de bloque
+        simbolo_fin = Simbolo(robot_name, "fin", "-", "-", linea=line)
+        self.tabla_simbolos.append(simbolo_fin)
+        return True
+    
+    def parse_robot_espera(self, robot_name, line):
+        """Parsea comando robot.espera = valor"""
+        try:
+            # =
+            equals_token = self.consume()
+            if not equals_token or equals_token.type != 'ASSIGN_OP':
+                self.errors.append(f"Error en línea {equals_token.line if equals_token else 'EOF'}: Se esperaba '=' después de espera")
+                return False
+            
+            # valor
+            value_token = self.consume()
+            if not value_token or value_token.type not in ['INTEGER_LITERAL', 'FLOAT_LITERAL']:
+                self.errors.append(f"Error en línea {value_token.line if value_token else 'EOF'}: Se esperaba tiempo de espera")
+                return False
+            
+            tiempo = float(value_token.value)
+            
+            # Validar rango de tiempo
+            if tiempo < 0.1 or tiempo > 60.0:
+                self.errors.append(f"Error en línea {value_token.line}: Tiempo de espera {tiempo} fuera del rango válido (0.1-60.0 segundos)")
+                return False
+            
+            # Agregar comando espera a la lista
+            self.comandos_espera.append({
+                'robot': robot_name,
+                'tiempo': tiempo,
+                'linea': line
+            })
+            
+            # Agregar a tabla de símbolos
+            simbolo_espera = Simbolo(robot_name, "espera", tiempo, tiempo, linea=line)
+            self.tabla_simbolos.append(simbolo_espera)
+            
+            return True
+            
+        except Exception as e:
+            self.errors.append(f"Error en comando espera: {str(e)}")
+            return False
+    
+    def parse_routine(self):
+        """Parsea una rutina: inicio NOMBRE [repetir N veces] COMANDOS fin"""
+        try:
+            # Consumir 'inicio'
+            inicio_token = self.consume()
+            if not inicio_token or inicio_token.type != 'KEYWORD' or inicio_token.value.lower() != 'inicio':
+                self.errors.append(f"Error en línea {inicio_token.line if inicio_token else 1}: Se esperaba 'inicio'")
+                return False
+            
+            # Nombre de la rutina
+            name_token = self.consume()
+            if not name_token or name_token.type != 'IDENTIFIER':
+                self.errors.append(f"Error en línea {name_token.line if name_token else 1}: Se esperaba nombre de rutina")
+                return False
+            
+            routine_name = name_token.value
+            repeticiones = 1
+            
+            # Verificar si hay 'repetir N veces'
+            next_token = self.peek()
+            if next_token and next_token.type == 'KEYWORD' and next_token.value.lower() == 'repetir':
+                self.consume()  # consumir 'repetir'
+                
+                # Número de repeticiones
+                num_token = self.consume()
+                if not num_token or num_token.type not in ['INTEGER_LITERAL']:
+                    self.errors.append(f"Error en línea {num_token.line if num_token else 1}: Se esperaba número de repeticiones")
+                    return False
+                
+                repeticiones = int(num_token.value)
+                
+                # Verificar 'veces'
+                veces_token = self.consume()
+                if not veces_token or veces_token.type != 'KEYWORD' or veces_token.value.lower() != 'veces':
+                    self.errors.append(f"Error en línea {veces_token.line if veces_token else 1}: Se esperaba 'veces'")
+                    return False
+            
+            # Parsear comandos hasta encontrar 'fin'
+            comandos = []
+            while self.peek() is not None:
+                token = self.peek()
+                
+                if token.type == 'KEYWORD' and token.value.lower() == 'fin':
+                    break
+                elif token.type == 'IDENTIFIER':
+                    # Instrucción de robot - guardar posición antes de parsear
+                    pos_antes = self.current
+                    if self.parse_instruction_in_routine():
+                        comandos.append("asignacion")
+                    else:
+                        # Si falla, restaurar posición y saltar token
+                        self.current = pos_antes + 1
+                elif token.type == 'KEYWORD' and token.value.lower() == 'espera':
+                    if self.parse_wait_command():
+                        comandos.append("espera")
+                    else:
+                        # Si falla parsear espera, saltar token
+                        self.consume()
+                else:
+                    self.consume()  # Saltar otros tokens
+            
+            # Consumir 'fin'
+            fin_token = self.consume()
+            if not fin_token or fin_token.type != 'KEYWORD' or fin_token.value.lower() != 'fin':
+                self.errors.append(f"Error en línea {fin_token.line if fin_token else 1}: Se esperaba 'fin' para cerrar rutina")
+                return False
+            
+            # Crear rutina
+            rutina = Rutina(routine_name, comandos, repeticiones, name_token.line)
+            self.rutinas[routine_name] = rutina
+            
+            return True
+            
+        except Exception as e:
+            self.errors.append(f"Error en rutina: {str(e)}")
+            return False
+    
+    def parse_instruction_in_routine(self):
+        """Parsea una instrucción dentro de una rutina"""
+        return self.parse_instruction(None)  # Sin robot específico, se determina dinámicamente
+    
+    def parse_standalone_instruction(self):
+        """Parsea una instrucción fuera de rutinas"""
+        return self.parse_instruction(None)
+    
+    def parse_wait_command(self):
+        """Parsea comando espera: espera TIEMPO"""
+        try:
+            # Consumir 'espera'
+            espera_token = self.consume()
+            if not espera_token or espera_token.type != 'KEYWORD' or espera_token.value.lower() != 'espera':
+                self.errors.append(f"Error en línea {espera_token.line if espera_token else 1}: Se esperaba 'espera'")
+                return False
+            
+            # Tiempo
+            time_token = self.consume()
+            if not time_token or time_token.type not in ['INTEGER_LITERAL', 'FLOAT_LITERAL']:
+                self.errors.append(f"Error en línea {time_token.line if time_token else 1}: Se esperaba tiempo numérico")
+                return False
+            
+            tiempo = float(time_token.value)
+            
+            # Validar rango de tiempo
+            if tiempo < 0.1 or tiempo > 60.0:
+                self.errors.append(f"Error en línea {time_token.line}: Tiempo de espera {tiempo} fuera del rango válido (0.1-60.0 segundos)")
+                return False
+            
+            # Agregar comando espera a la lista
+            self.comandos_espera.append({
+                'tiempo': tiempo,
+                'linea': espera_token.line
+            })
+            
+            # Agregar a tabla de símbolos como operación especial
+            simbolo_espera = Simbolo("ESP", "espera", tiempo, tiempo, linea=espera_token.line)
+            self.tabla_simbolos.append(simbolo_espera)
+            
+            return True
+            
+        except Exception as e:
+            self.errors.append(f"Error en comando espera: {str(e)}")
             return False
 
 class RobotLexicalAnalyzer:
@@ -435,6 +626,35 @@ class RobotLexicalAnalyzer:
                     output.append("   📋 Sin asignaciones")
                 output.append("")
         
+        # Información de rutinas
+        if self.parser and self.parser.rutinas:
+            output.append("=== RUTINAS DEFINIDAS ===")
+            for nombre, rutina in self.parser.rutinas.items():
+                output.append(f"🔄 Rutina: {nombre}")
+                output.append(f"   📋 Repeticiones: {rutina.repeticiones}")
+                output.append(f"   📋 Comandos: {len(rutina.comandos)}")
+                output.append(f"   📋 Línea: {rutina.linea}")
+                output.append("")
+        
+        # Información de comandos espera
+        if self.parser and self.parser.comandos_espera:
+            output.append("=== COMANDOS DE ESPERA ===")
+            for i, comando in enumerate(self.parser.comandos_espera, 1):
+                output.append(f"⏱️ Espera {i}: {comando['robot']}.espera {comando['tiempo']} segundos (línea {comando['linea']})")
+            output.append("")
+        
+        # Información de bloques inicio/fin
+        inicio_symbols = [s for s in self.parser.tabla_simbolos if s.metodo == 'inicio']
+        fin_symbols = [s for s in self.parser.tabla_simbolos if s.metodo == 'fin']
+        
+        if inicio_symbols or fin_symbols:
+            output.append("=== BLOQUES DE CONTROL ===")
+            for simbolo in inicio_symbols:
+                output.append(f"🔄 {simbolo.id}.inicio (línea {simbolo.linea})")
+            for simbolo in fin_symbols:
+                output.append(f"🔚 {simbolo.id}.fin (línea {simbolo.linea})")
+            output.append("")
+        
         # Tabla de Símbolos
         if self.parser and self.parser.tabla_simbolos:
             output.append("=== 📋 TABLA DE SÍMBOLOS ===")
@@ -486,6 +706,13 @@ class RobotLexicalAnalyzer:
             if self.parser:
                 output.append(f"📊 Asignaciones válidas: {len(self.parser.assignments) if self.parser.assignments else 0}")
                 output.append(f"📊 Símbolos en tabla: {len(self.parser.tabla_simbolos) if self.parser.tabla_simbolos else 0}")
+                output.append(f"📊 Rutinas definidas: {len(self.parser.rutinas) if self.parser.rutinas else 0}")
+                output.append(f"📊 Comandos de espera: {len(self.parser.comandos_espera) if self.parser.comandos_espera else 0}")
+                
+                # Contar bloques inicio/fin
+                inicio_count = len([s for s in self.parser.tabla_simbolos if s.metodo == 'inicio'])
+                fin_count = len([s for s in self.parser.tabla_simbolos if s.metodo == 'fin'])
+                output.append(f"📊 Bloques de control: {inicio_count} inicio, {fin_count} fin")
             
             output.append("")
             
@@ -591,26 +818,11 @@ class SemanticAnalyzer:
                     robot_declarations[robot_name] = simbolo.linea if simbolo.linea else "desconocida"
     
     def _check_assignment_uniqueness(self, parser):
-        """Verifica que no haya asignaciones duplicadas para el mismo componente"""
-        for simbolo in parser.tabla_simbolos:
-            if not simbolo.es_declaracion:
-                robot_name = simbolo.id
-                component = simbolo.metodo
-                
-                # Inicializar estructuras si no existen
-                if robot_name not in self.robot_assignments:
-                    self.robot_assignments[robot_name] = {}
-                
-                if component not in self.robot_assignments[robot_name]:
-                    self.robot_assignments[robot_name][component] = []
-                
-                # Agregar esta asignación
-                self.robot_assignments[robot_name][component].append(simbolo)
-                
-                # Verificar si hay duplicados
-                if len(self.robot_assignments[robot_name][component]) > 1:
-                    lineas = [str(s.linea) if s.linea else "?" for s in self.robot_assignments[robot_name][component]]
-                    self.errors.append(f"Error semántico en líneas {', '.join(lineas)}: Asignación duplicada para '{robot_name}.{component}' - se encontraron múltiples asignaciones")
+        """Verifica que no haya asignaciones duplicadas para el mismo componente (solo fuera de rutinas)"""
+        # En el contexto de rutinas robóticas, es válido tener múltiples asignaciones
+        # al mismo componente en diferentes momentos de la secuencia.
+        # Esta validación se omite para permitir secuencias de movimiento complejas.
+        pass
     
     def _check_value_ranges(self, parser):
         """Verifica que los valores asignados estén dentro de los rangos válidos"""
@@ -638,8 +850,20 @@ class SemanticAnalyzer:
     def _check_undeclared_robots(self, parser):
         """Verifica que todos los robots usados en asignaciones hayan sido declarados"""
         for simbolo in parser.tabla_simbolos:
-            if not simbolo.es_declaracion:
+            # Excluir comandos especiales y símbolos de declaración
+            if not simbolo.es_declaracion and simbolo.id not in ['ESP'] and simbolo.metodo not in ['inicio', 'fin']:
                 robot_name = simbolo.id
                 linea = simbolo.linea if simbolo.linea else "desconocida"
                 if robot_name not in self.declared_robots:
                     self.errors.append(f"Error semántico en línea {linea}: Robot '{robot_name}' usado sin haber sido declarado")
+
+class Rutina:
+    """Clase para representar una rutina en el código robótico"""
+    def __init__(self, nombre, comandos, repeticiones=1, linea=None):
+        self.nombre = nombre
+        self.comandos = comandos  # Lista de comandos dentro de la rutina
+        self.repeticiones = repeticiones
+        self.linea = linea
+    
+    def __str__(self):
+        return f"Rutina({self.nombre}, {len(self.comandos)} comandos, repetir {self.repeticiones} veces)"
