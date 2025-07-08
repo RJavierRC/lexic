@@ -430,6 +430,7 @@ class RobotLexicalAnalyzer:
         self.semantic_valid = False
         self.parser = None
         self.semantic_analyzer = None
+        self.intermediate_code_generator = None
         
     def analyze(self, source_code):
         """Analiza el código fuente y genera tokens"""
@@ -514,14 +515,20 @@ class RobotLexicalAnalyzer:
         if self.parser.errors:
             self.errors.extend(self.parser.errors)
         
-        # Realizar análisis semántico SIEMPRE que tengamos tabla de símbolos
-        if self.parser and self.parser.tabla_simbolos:
+        # Solo realizar análisis semántico y código intermedio si NO hay errores léxicos ni sintácticos
+        if not self.errors and self.parser and self.parser.tabla_simbolos:
+            # Análisis semántico
             self.semantic_analyzer = SemanticAnalyzer()
             self.semantic_valid = self.semantic_analyzer.analyze(self.parser)
             if self.semantic_analyzer.errors:
                 self.errors.extend(self.semantic_analyzer.errors)
             if self.semantic_analyzer.warnings:
                 self.warnings.extend(self.semantic_analyzer.warnings)
+            
+            # Generar código intermedio solo si el análisis semántico también es exitoso
+            if self.semantic_valid:
+                self.intermediate_code_generator = IntermediateCodeGenerator()
+                self.intermediate_code_generator.generar_codigo_intermedio(self.parser)
         
         # Generar advertencias adicionales
         self._generate_warnings()
@@ -551,6 +558,12 @@ class RobotLexicalAnalyzer:
         """Obtiene la tabla de símbolos"""
         if self.parser:
             return self.parser.tabla_simbolos
+        return []
+    
+    def get_cuadruplos(self):
+        """Obtiene los cuádruplos generados"""
+        if self.intermediate_code_generator:
+            return self.intermediate_code_generator.cuadruplos
         return []
     
     def get_formatted_output(self):
@@ -613,114 +626,126 @@ class RobotLexicalAnalyzer:
                 output.append(f"{repr(token.value):<10} {token.line:<6} {token.column:<8} Caracter no válido en el lenguaje")
             output.append("")
         
-        # Información del parser
-        if self.parser and self.parser.robots:
-            output.append("=== INFORMACIÓN DE ROBOTS ===")
-            for robot_name, robot_assignments in self.parser.robots.items():
-                output.append(f"🤖 Robot: {robot_name}")
-                if robot_assignments:
-                    output.append(f"   📋 Asignaciones ({len(robot_assignments)}):")
-                    for assignment in robot_assignments:
-                        output.append(f"      • {assignment['robot']}.{assignment['component']} = {assignment['value']} (línea {assignment['line']})")
-                else:
-                    output.append("   📋 Sin asignaciones")
-                output.append("")
-        
-        # Información de rutinas
-        if self.parser and self.parser.rutinas:
-            output.append("=== RUTINAS DEFINIDAS ===")
-            for nombre, rutina in self.parser.rutinas.items():
-                output.append(f"🔄 Rutina: {nombre}")
-                output.append(f"   📋 Repeticiones: {rutina.repeticiones}")
-                output.append(f"   📋 Comandos: {len(rutina.comandos)}")
-                output.append(f"   📋 Línea: {rutina.linea}")
-                output.append("")
-        
-        # Información de comandos espera
-        if self.parser and self.parser.comandos_espera:
-            output.append("=== COMANDOS DE ESPERA ===")
-            for i, comando in enumerate(self.parser.comandos_espera, 1):
-                output.append(f"⏱️ Espera {i}: {comando['robot']}.espera {comando['tiempo']} segundos (línea {comando['linea']})")
-            output.append("")
-        
-        # Información de bloques inicio/fin
-        inicio_symbols = [s for s in self.parser.tabla_simbolos if s.metodo == 'inicio']
-        fin_symbols = [s for s in self.parser.tabla_simbolos if s.metodo == 'fin']
-        
-        if inicio_symbols or fin_symbols:
-            output.append("=== BLOQUES DE CONTROL ===")
-            for simbolo in inicio_symbols:
-                output.append(f"🔄 {simbolo.id}.inicio (línea {simbolo.linea})")
-            for simbolo in fin_symbols:
-                output.append(f"🔚 {simbolo.id}.fin (línea {simbolo.linea})")
-            output.append("")
-        
-        # Tabla de Símbolos
-        if self.parser and self.parser.tabla_simbolos:
-            output.append("=== 📋 TABLA DE SÍMBOLOS ===")
-            output.append("| ID  | MÉTODO  | PARÁMETRO | VALOR |")
-            output.append("|-----|---------|-----------|-------|")
-            for simbolo in self.parser.tabla_simbolos:
-                output.append(str(simbolo))
-            output.append("")
-        
-        # Tokens encontrados
-        if self.tokens:
-            output.append("=== TOKENS ENCONTRADOS ===")
-            output.append(f"{'Tipo':<20} {'Valor':<15} {'Línea':<6} {'Columna':<8} {'Descripción':<30}")
-            output.append("-" * 85)
-            
-            for token in self.tokens:
-                description = self._get_token_description(token)
-                output.append(f"{token.type:<20} {repr(token.value):<15} {token.line:<6} {token.column:<8} {description:<30}")
-            
-            output.append("")
-            
-            # Análisis de componentes
-            if self.components_found:
-                output.append("=== COMPONENTES ROBÓTICOS DETECTADOS ===")
-                for component in sorted(self.components_found):
-                    if component in COMPONENT_RANGES:
-                        range_info = COMPONENT_RANGES[component]
-                        output.append(f"🔧 {component.upper()}: {range_info['description']} (rango: {range_info['min']}-{range_info['max']})")
+        # SOLO MOSTRAR INFORMACIÓN DETALLADA SI NO HAY ERRORES
+        if not self.errors:
+            # Información del parser
+            if self.parser and self.parser.robots:
+                output.append("=== INFORMACIÓN DE ROBOTS ===")
+                for robot_name, robot_assignments in self.parser.robots.items():
+                    output.append(f"🤖 Robot: {robot_name}")
+                    if robot_assignments:
+                        output.append(f"   📋 Asignaciones ({len(robot_assignments)}):")
+                        for assignment in robot_assignments:
+                            output.append(f"      • {assignment['robot']}.{assignment['component']} = {assignment['value']} (línea {assignment['line']})")
                     else:
-                        output.append(f"🔧 {component.upper()}")
+                        output.append("   📋 Sin asignaciones")
+                    output.append("")
+            
+            # Información de rutinas
+            if self.parser and self.parser.rutinas:
+                output.append("=== RUTINAS DEFINIDAS ===")
+                for nombre, rutina in self.parser.rutinas.items():
+                    output.append(f"🔄 Rutina: {nombre}")
+                    output.append(f"   📋 Repeticiones: {rutina.repeticiones}")
+                    output.append(f"   📋 Comandos: {len(rutina.comandos)}")
+                    output.append(f"   📋 Línea: {rutina.linea}")
+                    output.append("")
+            
+            # Información de comandos espera
+            if self.parser and self.parser.comandos_espera:
+                output.append("=== COMANDOS DE ESPERA ===")
+                for i, comando in enumerate(self.parser.comandos_espera, 1):
+                    output.append(f"⏱️ Espera {i}: {comando['robot']}.espera {comando['tiempo']} segundos (línea {comando['linea']})")
                 output.append("")
             
-            # Información semántica adicional
-            if self.semantic_analyzer:
-                output.append("=== VALIDACIONES SEMÁNTICAS ===")
-                output.append("📋 Rangos válidos para componentes:")
-                for component, range_info in COMPONENT_RANGES.items():
-                    output.append(f"   • {component}: {range_info['min']}-{range_info['max']}° ({range_info['description']})")
-                output.append("")
-            
-            # Estadísticas
-            output.append("=== ESTADÍSTICAS ===")
-            stats = self.get_token_statistics()
-            total_tokens = sum(stats.values())
-            output.append(f"📊 Total de tokens: {total_tokens}")
-            output.append(f"📊 Líneas procesadas: {self.current_line}")
-            output.append(f"📊 Componentes encontrados: {len(self.components_found)}")
-            
-            if self.parser:
-                output.append(f"📊 Asignaciones válidas: {len(self.parser.assignments) if self.parser.assignments else 0}")
-                output.append(f"📊 Símbolos en tabla: {len(self.parser.tabla_simbolos) if self.parser.tabla_simbolos else 0}")
-                output.append(f"📊 Rutinas definidas: {len(self.parser.rutinas) if self.parser.rutinas else 0}")
-                output.append(f"📊 Comandos de espera: {len(self.parser.comandos_espera) if self.parser.comandos_espera else 0}")
+            # Información de bloques inicio/fin
+            if self.parser and self.parser.tabla_simbolos:
+                inicio_symbols = [s for s in self.parser.tabla_simbolos if s.metodo == 'inicio']
+                fin_symbols = [s for s in self.parser.tabla_simbolos if s.metodo == 'fin']
                 
-                # Contar bloques inicio/fin
-                inicio_count = len([s for s in self.parser.tabla_simbolos if s.metodo == 'inicio'])
-                fin_count = len([s for s in self.parser.tabla_simbolos if s.metodo == 'fin'])
-                output.append(f"📊 Bloques de control: {inicio_count} inicio, {fin_count} fin")
+                if inicio_symbols or fin_symbols:
+                    output.append("=== BLOQUES DE CONTROL ===")
+                    for simbolo in inicio_symbols:
+                        output.append(f"🔄 {simbolo.id}.inicio (línea {simbolo.linea})")
+                    for simbolo in fin_symbols:
+                        output.append(f"🔚 {simbolo.id}.fin (línea {simbolo.linea})")
+                    output.append("")
             
-            output.append("")
+            # Tabla de Símbolos (SOLO SI NO HAY ERRORES)
+            if self.parser and self.parser.tabla_simbolos:
+                output.append("=== 📋 TABLA DE SÍMBOLOS ===")
+                output.append("| ID  | MÉTODO  | PARÁMETRO | VALOR |")
+                output.append("|-----|---------|-----------|-------|")
+                for simbolo in self.parser.tabla_simbolos:
+                    output.append(str(simbolo))
+                output.append("")
             
-            # Desglose por tipo de token
-            output.append("=== DISTRIBUCIÓN DE TOKENS ===")
-            for token_type, count in sorted(stats.items()):
-                percentage = (count / total_tokens) * 100
-                output.append(f"{token_type}: {count} ({percentage:.1f}%)")
+            # Tabla de Cuádruplos (SOLO SI NO HAY ERRORES)
+            if self.intermediate_code_generator and self.intermediate_code_generator.cuadruplos:
+                output.append(self.intermediate_code_generator.get_formatted_table())
+            
+            # Tokens encontrados (SOLO SI NO HAY ERRORES)
+            if self.tokens:
+                output.append("=== TOKENS ENCONTRADOS ===")
+                output.append(f"{'Tipo':<20} {'Valor':<15} {'Línea':<6} {'Columna':<8} {'Descripción':<30}")
+                output.append("-" * 85)
+                
+                for token in self.tokens:
+                    description = self._get_token_description(token)
+                    output.append(f"{token.type:<20} {repr(token.value):<15} {token.line:<6} {token.column:<8} {description:<30}")
+                
+                output.append("")
+                
+                # Análisis de componentes
+                if self.components_found:
+                    output.append("=== COMPONENTES ROBÓTICOS DETECTADOS ===")
+                    for component in sorted(self.components_found):
+                        if component in COMPONENT_RANGES:
+                            range_info = COMPONENT_RANGES[component]
+                            output.append(f"🔧 {component.upper()}: {range_info['description']} (rango: {range_info['min']}-{range_info['max']})")
+                        else:
+                            output.append(f"🔧 {component.upper()}")
+                    output.append("")
+                
+                # Información semántica adicional
+                if self.semantic_analyzer:
+                    output.append("=== VALIDACIONES SEMÁNTICAS ===")
+                    output.append("📋 Rangos válidos para componentes:")
+                    for component, range_info in COMPONENT_RANGES.items():
+                        output.append(f"   • {component}: {range_info['min']}-{range_info['max']}° ({range_info['description']})")
+                    output.append("")
+                
+                # Estadísticas
+                output.append("=== ESTADÍSTICAS ===")
+                stats = self.get_token_statistics()
+                total_tokens = sum(stats.values())
+                output.append(f"📊 Total de tokens: {total_tokens}")
+                output.append(f"📊 Líneas procesadas: {self.current_line}")
+                output.append(f"📊 Componentes encontrados: {len(self.components_found)}")
+                
+                if self.parser:
+                    output.append(f"📊 Asignaciones válidas: {len(self.parser.assignments) if self.parser.assignments else 0}")
+                    output.append(f"📊 Símbolos en tabla: {len(self.parser.tabla_simbolos) if self.parser.tabla_simbolos else 0}")
+                    output.append(f"📊 Rutinas definidas: {len(self.parser.rutinas) if self.parser.rutinas else 0}")
+                    output.append(f"📊 Comandos de espera: {len(self.parser.comandos_espera) if self.parser.comandos_espera else 0}")
+                    
+                    # Contar bloques inicio/fin
+                    if self.parser.tabla_simbolos:
+                        inicio_count = len([s for s in self.parser.tabla_simbolos if s.metodo == 'inicio'])
+                        fin_count = len([s for s in self.parser.tabla_simbolos if s.metodo == 'fin'])
+                        output.append(f"📊 Bloques de control: {inicio_count} inicio, {fin_count} fin")
+                
+                output.append("")
+                
+                # Desglose por tipo de token
+                output.append("=== DISTRIBUCIÓN DE TOKENS ===")
+                for token_type, count in sorted(stats.items()):
+                    percentage = (count / total_tokens) * 100
+                    output.append(f"{token_type}: {count} ({percentage:.1f}%)")
+        else:
+            # Si HAY ERRORES, mostrar información básica solamente
+            output.append("ℹ️ Análisis interrumpido debido a errores.")
+            output.append("ℹ️ Corrija los errores antes de proceder con el análisis completo.")
         
         if not self.tokens and not self.errors:
             output.append("ℹ️ No se encontraron tokens para analizar.")
@@ -867,3 +892,168 @@ class Rutina:
     
     def __str__(self):
         return f"Rutina({self.nombre}, {len(self.comandos)} comandos, repetir {self.repeticiones} veces)"
+
+class Cuadruplo:
+    """Clase para representar un cuádruplo de código intermedio"""
+    def __init__(self, numero, operacion, arg1, arg2, resultado, descripcion):
+        self.numero = numero
+        self.operacion = operacion
+        self.arg1 = arg1 if arg1 is not None else "-"
+        self.arg2 = arg2 if arg2 is not None else "-"
+        self.resultado = resultado if resultado is not None else "-"
+        self.descripcion = descripcion
+    
+    def __str__(self):
+        return f"| {self.numero:<3} | {self.operacion:<15} | {self.arg1:<8} | {self.arg2:<8} | {self.resultado:<10} | {self.descripcion} |"
+
+class IntermediateCodeGenerator:
+    """Generador de código intermedio (cuádruplos) para el lenguaje robótico"""
+    
+    def __init__(self):
+        self.cuadruplos = []
+        self.contador_cuadruplos = 0
+        self.contador_etiquetas = 0
+        self.contador_temporales = 0
+        self.contador_loops = 0
+        self.pila_etiquetas = []  # Para manejar loops anidados
+        
+    def generar_etiqueta(self):
+        """Genera una nueva etiqueta"""
+        self.contador_etiquetas += 1
+        return f"L{self.contador_etiquetas}"
+    
+    def generar_temporal(self):
+        """Genera una nueva variable temporal"""
+        self.contador_temporales += 1
+        return f"T{self.contador_temporales}"
+    
+    def generar_contador_loop(self):
+        """Genera un nuevo contador de loop"""
+        self.contador_loops += 1
+        return f"CX{self.contador_loops}"
+    
+    def agregar_cuadruplo(self, operacion, arg1=None, arg2=None, resultado=None, descripcion=""):
+        """Agrega un nuevo cuádruplo a la lista"""
+        cuadruplo = Cuadruplo(self.contador_cuadruplos, operacion, arg1, arg2, resultado, descripcion)
+        self.cuadruplos.append(cuadruplo)
+        self.contador_cuadruplos += 1
+        return cuadruplo
+    
+    def generar_codigo_intermedio(self, parser):
+        """Genera código intermedio basado en la tabla de símbolos del parser"""
+        self.cuadruplos = []
+        self.contador_cuadruplos = 0
+        self.contador_etiquetas = 0
+        self.contador_temporales = 0
+        self.contador_loops = 0
+        self.pila_etiquetas = []
+        
+        if not parser or not parser.tabla_simbolos:
+            return self.cuadruplos
+        
+        # Variables para tracking del estado
+        robot_actual = None
+        repeticiones_robot = {}
+        dentro_de_bloque = False
+        etiqueta_inicio_loop = None
+        etiqueta_fin_loop = None
+        contador_loop = None
+        
+        for simbolo in parser.tabla_simbolos:
+            if simbolo.es_declaracion:
+                # Declaración de robot
+                self.agregar_cuadruplo("DECLARAR", "robot", None, simbolo.id, f"Declaración del robot {simbolo.id}")
+                robot_actual = simbolo.id
+                
+            elif simbolo.metodo == "repetir":
+                # Configuración de repeticiones
+                contador_loop = self.generar_contador_loop()
+                repeticiones_robot[simbolo.id] = {
+                    'contador': contador_loop,
+                    'valor': simbolo.valor
+                }
+                self.agregar_cuadruplo("ASIG", simbolo.valor, None, contador_loop, f"Contador del loop = {simbolo.valor}")
+                
+            elif simbolo.metodo == "inicio":
+                # Inicio de bloque con repetición
+                dentro_de_bloque = True
+                if simbolo.id in repeticiones_robot:
+                    etiqueta_inicio_loop = self.generar_etiqueta()
+                    etiqueta_fin_loop = self.generar_etiqueta()
+                    contador_loop = repeticiones_robot[simbolo.id]['contador']
+                    
+                    self.agregar_cuadruplo("DECLARAR_ETIQUETA", None, None, etiqueta_inicio_loop, "Etiqueta de inicio del ciclo")
+                    
+                    # Comparar si el contador llegó a 0
+                    temp_comparacion = self.generar_temporal()
+                    self.agregar_cuadruplo("COMPARAR", contador_loop, "0", temp_comparacion, f"Compara si {contador_loop} == 0")
+                    self.agregar_cuadruplo("SALTO_CONDICIONAL", temp_comparacion, None, etiqueta_fin_loop, f"Si {contador_loop} == 0 salta al final")
+                    
+                    self.pila_etiquetas.append({
+                        'inicio': etiqueta_inicio_loop,
+                        'fin': etiqueta_fin_loop,
+                        'contador': contador_loop
+                    })
+                else:
+                    # Bloque simple sin repetición
+                    self.agregar_cuadruplo("DECLARAR_ETIQUETA", None, None, "BLOQUE_INICIO", "Inicio de bloque")
+                
+            elif simbolo.metodo == "fin":
+                # Fin de bloque
+                dentro_de_bloque = False
+                if self.pila_etiquetas and simbolo.id in repeticiones_robot:
+                    # Fin de loop con repetición
+                    info_loop = self.pila_etiquetas.pop()
+                    
+                    # Decrementar contador
+                    self.agregar_cuadruplo("DECREMENTO", info_loop['contador'], None, info_loop['contador'], "Resta 1 al contador")
+                    
+                    # Salto incondicional al inicio
+                    self.agregar_cuadruplo("SALTO_INCONDICIONAL", None, None, info_loop['inicio'], "Vuelve al inicio del ciclo")
+                    
+                    # Etiqueta de fin
+                    self.agregar_cuadruplo("FIN", None, None, info_loop['fin'], "Fin del ciclo")
+                else:
+                    # Fin de bloque simple
+                    self.agregar_cuadruplo("FIN", None, None, "BLOQUE_FIN", "Fin del bloque")
+                
+            elif simbolo.metodo == "espera":
+                # Comando de espera
+                self.agregar_cuadruplo("ASIG", simbolo.valor, None, "espera", f"espera = {simbolo.valor}")
+                self.agregar_cuadruplo("CALL", "espera", simbolo.valor, simbolo.id, f"Espera {simbolo.valor} segundos")
+                
+            elif simbolo.metodo in VALID_COMPONENTS and simbolo.metodo not in ["repetir", "inicio", "fin", "espera"]:
+                # Asignación a componente robótico
+                self.agregar_cuadruplo("ASIG", simbolo.valor, None, simbolo.metodo, f"{simbolo.metodo} = {simbolo.valor}")
+                self.agregar_cuadruplo("CALL", simbolo.metodo, simbolo.valor, simbolo.id, f"Mueve {simbolo.metodo} a {simbolo.valor}°")
+        
+        return self.cuadruplos
+    
+    def get_formatted_table(self):
+        """Retorna la tabla de cuádruplos formateada como string"""
+        if not self.cuadruplos:
+            return "No se generaron cuádruplos."
+        
+        output = []
+        output.append("=== CÓDIGO INTERMEDIO (CUÁDRUPLOS) ===")
+        output.append("")
+        output.append("| #   | OPERACION       | ARG1     | ARG2     | RESULTADO  | DESCRIPCION")
+        output.append("|-----|-----------------|----------|----------|------------|" + "-" * 50)
+        
+        for cuadruplo in self.cuadruplos:
+            output.append(str(cuadruplo))
+        
+        output.append("")
+        output.append(f"Total de cuádruplos generados: {len(self.cuadruplos)}")
+        output.append("")
+        
+        # Información adicional sobre el código intermedio
+        output.append("INFORMACIÓN DEL CÓDIGO INTERMEDIO:")
+        output.append("• Cada operación del programa se descompone en instrucciones básicas")
+        output.append("• Los cuádruplos facilitan la optimización y traducción a código máquina")
+        output.append("• Variables temporales (T1, T2, ...) almacenan resultados intermedios")
+        output.append("• Contadores de loop (CX1, CX2, ...) controlan las repeticiones")
+        output.append("• Etiquetas (L1, L2, ...) marcan puntos de salto en el código")
+        output.append("")
+        
+        return "\n".join(output)

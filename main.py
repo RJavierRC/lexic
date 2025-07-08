@@ -12,11 +12,11 @@ class LineNumberText(tk.Frame):
         # Crear el widget de números de línea
         self.line_numbers = tk.Text(self, width=4, padx=3, takefocus=0,
                                   relief=tk.SUNKEN, bd=1, state=tk.DISABLED,
-                                  font=('Courier', 10), bg='#f0f0f0', fg='#666666')
+                                  font=('Courier', 12), bg='#f0f0f0', fg='#666666')
         self.line_numbers.pack(side=tk.LEFT, fill=tk.Y)
         
         # Crear el widget de texto principal
-        self.text_widget = scrolledtext.ScrolledText(self, font=('Courier', 10), **kwargs)
+        self.text_widget = scrolledtext.ScrolledText(self, font=('Courier', 12), **kwargs)
         self.text_widget.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         
         # Vincular eventos
@@ -83,8 +83,8 @@ class LexicalAnalyzerGUI:
         style.theme_use('clam')
         
         # Configurar colores
-        style.configure('Title.TLabel', font=('Arial', 12, 'bold'))
-        style.configure('Button.TButton', font=('Arial', 10))
+        style.configure('Title.TLabel', font=('Arial', 14, 'bold'))
+        style.configure('Button.TButton', font=('Arial', 11))
     
     def create_menu(self):
         """Crea la barra de menú"""
@@ -162,7 +162,7 @@ class LexicalAnalyzerGUI:
         
         # Área de salida
         self.output_text = scrolledtext.ScrolledText(right_frame, wrap=tk.WORD, 
-                                                   font=('Courier', 9), state=tk.DISABLED)
+                                                   font=('Courier', 11), state=tk.DISABLED)
         self.output_text.pack(fill=tk.BOTH, expand=True)
         
         # Barra de estado
@@ -312,11 +312,12 @@ class LexicalAnalyzerGUI:
             "Acerca de",
             "Analizador Léxico, Sintáctico y Semántico para Brazo Robótico\n\n"
             "Desarrollado con Python y tkinter\n"
-            "Versión 4.0 - Nueva Sintaxis Extendida\n\n"
+            "Versión 5.0 - Generación de Código Intermedio\n\n"
             "Características:\n"
             "• Análisis léxico especializado para robótica\n"
             "• Análisis sintáctico con validación de gramática\n"
             "• Análisis semántico con validaciones avanzadas\n"
+            "• Generación de código intermedio (cuádruplos)\n"
             "• Detección de declaraciones duplicadas\n"
             "• Validación de rangos de valores\n"
             "• Verificación de robots no declarados\n"
@@ -344,6 +345,15 @@ class LexicalAnalyzerGUI:
             "Comandos especiales:\n"
             "• inicio: marca el inicio de un bloque\n"
             "• fin: marca el final de un bloque\n\n"
+            "Código Intermedio (Cuádruplos):\n"
+            "• DECLARAR: Declaración de robots\n"
+            "• ASIG: Asignación de valores\n"
+            "• CALL: Llamadas a movimientos\n"
+            "• COMPARAR: Comparaciones de control\n"
+            "• SALTO_CONDICIONAL: Saltos condicionales\n"
+            "• SALTO_INCONDICIONAL: Saltos de bucle\n"
+            "• DECREMENTO: Operaciones de contador\n"
+            "• Variables: CX1, CX2 (contadores), T1, T2 (temporales), L1, L2 (etiquetas)\n\n"
             "Ejemplo completo:\n"
             "Robot r1\n"
             "r1.repetir = 3\n"
