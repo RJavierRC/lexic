@@ -2,6 +2,32 @@
 
 Un analizador léxico y sintáctico especializado para lenguaje de control de brazo robótico, desarrollado en Python con interfaz gráfica usando tkinter.
 
+## 🚀 Inicio Rápido
+
+### Ubuntu/Linux:
+```bash
+# Método 1: Script de inicio
+./start_analyzer.sh
+
+# Método 2: Directo con Python
+python3 main.py
+
+# Método 3: Con entorno virtual
+source .venv/bin/activate
+python main.py
+```
+
+### Windows:
+```cmd
+# Método 1: Script de inicio
+start_analyzer.bat
+
+# Método 2: Directo con Python
+python main.py
+
+# Método 3: Doble clic en main.py
+```
+
 ## Características
 
 - **Analizador Léxico Especializado**: Reconoce todos los tokens del lenguaje robótico

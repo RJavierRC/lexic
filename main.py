@@ -464,3 +464,13 @@ class LexicalAnalyzerGUI:
         
         ttk.Button(button_frame, text="Guardar Como...", command=save_asm).pack(side=tk.RIGHT)
         ttk.Button(button_frame, text="Cerrar", command=asm_window.destroy).pack(side=tk.RIGHT, padx=5)
+
+
+if __name__ == "__main__":
+    try:
+        app = LexicalAnalyzerGUI()
+        app.run()
+    except Exception as e:
+        print(f"Error al iniciar la aplicación: {e}")
+        import traceback
+        traceback.print_exc()
