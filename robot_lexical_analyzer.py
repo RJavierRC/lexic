@@ -776,6 +776,51 @@ class RobotLexicalAnalyzer:
             'UNKNOWN': '❌ CARACTER DESCONOCIDO'
         }
         return descriptions.get(token.type, 'Token no clasificado')
+    
+    def generate_assembly_code(self, program_name="robot_program"):
+        """Genera código ensamblador desde los cuádruplos"""
+        if not self.intermediate_code_generator or not self.intermediate_code_generator.cuadruplos:
+            return None, "No hay cuádruplos para generar código ensamblador"
+        
+        try:
+            # Importar el generador de ensamblador
+            from assembly_generator import AssemblyGenerator
+            
+            generator = AssemblyGenerator()
+            asm_code = generator.generate_assembly(self.intermediate_code_generator.cuadruplos, program_name)
+            return asm_code, None
+        except Exception as e:
+            return None, f"Error al generar código ensamblador: {str(e)}"
+    
+    def compile_to_executable(self, asm_code, output_name="robot_program"):
+        """Compila código ensamblador a ejecutable usando DOSBox y TASM"""
+        try:
+            # Importar el controlador de DOSBox
+            from assembly_generator import DOSBoxController
+            
+            controller = DOSBoxController()
+            success, message = controller.compile_assembly(asm_code, output_name)
+            return success, message
+        except Exception as e:
+            return False, f"Error al compilar: {str(e)}"
+    
+    def generate_and_compile(self, program_name="robot_program"):
+        """Proceso completo: genera ensamblador y compila a ejecutable"""
+        if self.errors:
+            return False, "No se puede generar código con errores en el análisis"
+        
+        # Generar código ensamblador
+        asm_code, error = self.generate_assembly_code(program_name)
+        if error:
+            return False, error
+        
+        # Compilar a ejecutable
+        success, message = self.compile_to_executable(asm_code, program_name)
+        
+        if success:
+            return True, f"Ejecutable {program_name}.exe generado exitosamente en DOSBox2/Tasm/"
+        else:
+            return False, f"Error en la compilación: {message}"
 
 class SemanticError(Exception):
     """Excepción para errores semánticos"""

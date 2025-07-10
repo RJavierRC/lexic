@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
+from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog
 import os
 from robot_lexical_analyzer import RobotLexicalAnalyzer
 
@@ -142,6 +142,7 @@ class LexicalAnalyzerGUI:
         ttk.Button(button_frame, text="Abrir Archivo", command=self.open_file, style='Button.TButton').pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Guardar", command=self.save_file, style='Button.TButton').pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Analizar", command=self.analyze_code, style='Button.TButton').pack(side=tk.LEFT, padx=2)
+        ttk.Button(button_frame, text="Generar .EXE", command=self.generate_executable, style='Button.TButton').pack(side=tk.LEFT, padx=2)
         ttk.Button(button_frame, text="Limpiar", command=self.clear_all, style='Button.TButton').pack(side=tk.LEFT, padx=2)
         
         # Panel dividido horizontal
@@ -368,7 +369,98 @@ class LexicalAnalyzerGUI:
     def run(self):
         """Ejecuta la aplicación"""
         self.root.mainloop()
-
-if __name__ == "__main__":
-    app = LexicalAnalyzerGUI()
-    app.run()
+    
+    def generate_executable(self):
+        """Genera código ensamblador y compila a ejecutable"""
+        code = self.code_editor.get(1.0, tk.END).strip()
+        
+        if not code:
+            messagebox.showerror("Error", "No hay código para generar ejecutable")
+            return
+        
+        # Primero analizar el código
+        self.update_status("Analizando código...")
+        
+        try:
+            # Realizar análisis completo
+            tokens, errors = self.analyzer.analyze(code)
+            
+            if errors:
+                messagebox.showerror("Error", 
+                    f"No se puede generar ejecutable debido a errores en el análisis:\n" +
+                    "\n".join(errors[:3]) + ("..." if len(errors) > 3 else ""))
+                return
+            
+            # Solicitar nombre del programa
+            program_name = tk.simpledialog.askstring(
+                "Nombre del Programa", 
+                "Ingrese el nombre del programa (sin extensión):",
+                initialvalue="robot_program"
+            )
+            
+            if not program_name:
+                return
+            
+            # Generar y compilar
+            self.update_status("Generando código ensamblador...")
+            success, message = self.analyzer.generate_and_compile(program_name)
+            
+            if success:
+                messagebox.showinfo("Éxito", 
+                    f"✅ {message}\n\n"
+                    f"Archivos generados:\n"
+                    f"• {program_name}.asm (código fuente)\n"
+                    f"• {program_name}.obj (código objeto)\n"
+                    f"• {program_name}.exe (ejecutable)\n\n"
+                    f"Los archivos están en la carpeta DOSBox2/Tasm/\n"
+                    f"El ejecutable puede ser usado en Proteus.")
+                
+                # Mostrar código ensamblador generado
+                asm_code, error = self.analyzer.generate_assembly_code(program_name)
+                if asm_code:
+                    self.show_assembly_code(asm_code, program_name)
+                
+                self.update_status(f"Ejecutable {program_name}.exe generado exitosamente")
+            else:
+                messagebox.showerror("Error", f"❌ {message}")
+                self.update_status("Error al generar ejecutable")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Error inesperado:\n{str(e)}")
+            self.update_status("Error en la generación")
+    
+    def show_assembly_code(self, asm_code, program_name):
+        """Muestra el código ensamblador generado en una ventana separada"""
+        # Crear ventana para mostrar código ensamblador
+        asm_window = tk.Toplevel(self.root)
+        asm_window.title(f"Código Ensamblador - {program_name}.asm")
+        asm_window.geometry("800x600")
+        
+        # Área de texto con scroll
+        text_area = scrolledtext.ScrolledText(asm_window, wrap=tk.NONE, font=('Courier', 10))
+        text_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Insertar código
+        text_area.insert(1.0, asm_code)
+        text_area.config(state=tk.DISABLED)
+        
+        # Botón para guardar
+        button_frame = ttk.Frame(asm_window)
+        button_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        def save_asm():
+            file_path = filedialog.asksaveasfilename(
+                title="Guardar código ensamblador",
+                defaultextension=".asm",
+                filetypes=[("Archivos Ensamblador", "*.asm"), ("Todos los archivos", "*.*")]
+            )
+            if file_path:
+                try:
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(asm_code)
+                    messagebox.showinfo("Guardado", f"Código ensamblador guardado en:\n{file_path}")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo guardar el archivo:\n{str(e)}")
+        
+        ttk.Button(button_frame, text="Guardar Como...", command=save_asm).pack(side=tk.RIGHT)
+        ttk.Button(button_frame, text="Cerrar", command=asm_window.destroy).pack(side=tk.RIGHT, padx=5)
