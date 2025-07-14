@@ -76,4 +76,4 @@ SYSTEM_INFO = {
     "compilation_available": True
 }
 
-print("🪟 Configuración Windows cargada exitosamente")
+print("Configuración Windows cargada exitosamente")

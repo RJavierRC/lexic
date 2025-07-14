@@ -11,7 +11,34 @@ import glob
 from datetime import datetime
 
 class AssemblyGenerator:
-    """Generador de código ensamblador desde cuádruplos"""
+    """Generad        try:
+            # Verificar que estamos en Windows
+                       # Ejecutar DOSBox con archivo de configuración específico
+            cmd = [
+                self.dosbox_exe, 
+                "-conf", self.config_file,
+                "-c", "mount c .", 
+                "-c", "c:", 
+                "-c", "compile_windows.bat", 
+                "-c", "exit"
+            ]
+            
+            print(f"Ejecutando compilación: {output_name}.exe con configuración personalizada")
+            result = subprocess.run(cmd, cwd=self.dosbox_path, capture_output=True, text=True, timeout=30)s.name != 'nt':
+                return False, "Esta versión está optimizada para Windows."
+            
+            # Verificar DOSBox
+            if not os.path.exists(self.dosbox_exe):
+                return False, f"DOSBox no encontrado en: {self.dosbox_exe}"
+            
+            # Verificar archivo de configuración
+            if not os.path.exists(self.config_file):
+                return False, f"Archivo de configuración no encontrado: {self.config_file}"
+            
+            # Crear archivo .asm
+            asm_file = os.path.join(self.tasm_path, f"{output_name}.asm")
+            with open(asm_file, 'w', encoding='utf-8') as f:
+                f.write(asm_code)ensamblador desde cuádruplos"""
     
     def __init__(self):
         self.variables = {}  # Variables declaradas
@@ -260,6 +287,7 @@ class DOSBoxController:
         self.dosbox_path = dosbox_path
         self.tasm_path = os.path.join(dosbox_path, "Tasm")
         self.dosbox_exe = os.path.join(dosbox_path, "dosbox.exe")
+        self.config_file = os.path.join(dosbox_path, "configuracion.conf")
     
     def compile_assembly(self, asm_code, output_name="robot_program"):
         """Compila código ensamblador usando DOSBox y TASM - Versión Windows Optimizada"""
@@ -327,9 +355,9 @@ timeout /t 2 /nobreak >nul
             # Verificar si se generó el ejecutable
             exe_file = os.path.join(self.tasm_path, f"{output_name}.exe")
             if os.path.exists(exe_file):
-                return True, f"✅ Ejecutable {output_name}.exe generado exitosamente\n📁 Ubicación: DOSBox2/Tasm/{output_name}.exe"
+                return True, f"Ejecutable {output_name}.exe generado exitosamente\nUbicación: DOSBox2/Tasm/{output_name}.exe"
             else:
-                error_msg = "❌ Error en la compilación Windows.\n"
+                error_msg = "Error en la compilación Windows.\n"
                 if result.stderr:
                     error_msg += f"Error: {result.stderr}\n"
                 if result.stdout:
@@ -337,9 +365,9 @@ timeout /t 2 /nobreak >nul
                 return False, error_msg
                 
         except subprocess.TimeoutExpired:
-            return False, "⏱️ Timeout: La compilación tardó demasiado (>30s)"
+            return False, "Timeout: La compilación tardó demasiado (>30s)"
         except Exception as e:
-            return False, f"❌ Error al compilar: {str(e)}"
+            return False, f"Error al compilar: {str(e)}"
     
     def get_generated_files(self):
         """Obtiene lista de archivos generados en Windows"""
@@ -364,7 +392,7 @@ timeout /t 2 /nobreak >nul
         
         if missing:
             return False, "Archivos faltantes:\n" + "\n".join(missing)
-        return True, "✅ Configuración Windows verificada"
+        return True, "Configuración Windows verificada"
 
 def test_assembly_generator():
     """Función de prueba para el generador"""
