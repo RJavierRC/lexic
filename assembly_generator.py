@@ -249,103 +249,122 @@ END MAIN
         return header + code_section + footer
 
 class DOSBoxController:
-    """Controlador para automatizar DOSBox y TASM"""
+    """Controlador para automatizar DOSBox y TASM - Optimizado para Windows"""
     
-    def __init__(self, dosbox_path="/home/xavier/lexic/DOSBox2"):
+    def __init__(self, dosbox_path=None):
+        # Detectar automáticamente la ruta para Windows
+        if dosbox_path is None:
+            current_dir = os.getcwd()
+            dosbox_path = os.path.join(current_dir, "DOSBox2")
+        
         self.dosbox_path = dosbox_path
         self.tasm_path = os.path.join(dosbox_path, "Tasm")
         self.dosbox_exe = os.path.join(dosbox_path, "dosbox.exe")
     
     def compile_assembly(self, asm_code, output_name="robot_program"):
-        """Compila código ensamblador usando DOSBox y TASM"""
+        """Compila código ensamblador usando DOSBox y TASM - Versión Windows Optimizada"""
         try:
-            # Crear archivo .asm temporal
-            asm_file = os.path.join(self.tasm_path, f"{output_name}.asm")
+            # Verificar que estamos en Windows
+            if os.name != 'nt':
+                return False, "⚠️ Esta versión está optimizada para Windows."
             
-            # Escribir código ensamblador
+            # Verificar DOSBox
+            if not os.path.exists(self.dosbox_exe):
+                return False, f"❌ DOSBox no encontrado en: {self.dosbox_exe}"
+            
+            # Crear archivo .asm
+            asm_file = os.path.join(self.tasm_path, f"{output_name}.asm")
             with open(asm_file, 'w', encoding='utf-8') as f:
                 f.write(asm_code)
             
-            # Verificar si estamos en Ubuntu/Linux
-            if os.name != 'nt':
-                # Intentar instalar Wine si no está disponible
-                wine_available = self.check_wine_installation()
-                if not wine_available:
-                    return False, "Wine no está instalado. Instalando Wine es necesario para ejecutar DOSBox en Ubuntu.\n\nPara instalar Wine:\nsudo apt update\nsudo apt install wine"
-            
-            # Crear script de compilación para DOSBox
+            # Script de compilación optimizado para Windows
             batch_script = f"""@echo off
-echo === COMPILANDO {output_name.upper()}.ASM ===
+echo ================================================
+echo ANALIZADOR LEXICO - COMPILACION WINDOWS
+echo ================================================
+echo Programa: {output_name.upper()}.EXE
+echo ================================================
 cd Tasm
-dir {output_name}.asm
-echo Ejecutando TASM {output_name}.asm...
+echo [1/3] Ejecutando TASM...
 TASM {output_name}.asm
-if errorlevel 1 goto error1
-echo TASM exitoso, archivo OBJ generado
-dir {output_name}.obj
-echo Ejecutando TLINK {output_name}.obj...
+if errorlevel 1 goto error
+echo [2/3] Ejecutando TLINK...
 TLINK {output_name}.obj
-if errorlevel 1 goto error2
-echo TLINK exitoso, archivo EXE generado
-dir {output_name}.exe
-echo === COMPILACION EXITOSA ===
+if errorlevel 1 goto error
+echo [3/3] Verificando resultado...
+if exist "{output_name}.exe" (
+    echo ✓ {output_name}.exe creado exitosamente
+    goto success
+) else (
+    goto error
+)
+
+:success
+echo ================================================
+echo          COMPILACION EXITOSA
+echo ================================================
 goto end
-:error1
-echo ERROR EN TASM
-goto end
-:error2
-echo ERROR EN TLINK
-goto end
+
+:error
+echo ================================================
+echo         ERROR DE COMPILACION
+echo ================================================
+
 :end
-echo Presiona cualquier tecla para continuar...
-pause
+timeout /t 2 /nobreak >nul
 """
             
-            batch_file = os.path.join(self.dosbox_path, "compile.bat")
+            batch_file = os.path.join(self.dosbox_path, "compile_windows.bat")
             with open(batch_file, 'w', encoding='utf-8') as f:
                 f.write(batch_script)
             
-            # Ejecutar DOSBox con el script
-            if os.name == 'nt':
-                # Windows
-                cmd = [self.dosbox_exe, "-c", "mount c .", "-c", "c:", "-c", "compile.bat", "-c", "exit"]
-            else:
-                # Linux - usar wine para ejecutar dosbox.exe
-                cmd = ["wine", self.dosbox_exe, "-c", "mount c .", "-c", "c:", "-c", "compile.bat", "-c", "exit"]
+            # Ejecutar DOSBox con configuración optimizada para Windows
+            cmd = [self.dosbox_exe, "-c", "mount c .", "-c", "c:", "-c", "compile_windows.bat", "-c", "exit"]
             
-            print(f"Ejecutando: {' '.join(cmd)}")
-            result = subprocess.run(cmd, cwd=self.dosbox_path, capture_output=True, text=True)
+            print(f"🔧 Ejecutando compilación: {output_name}.exe")
+            result = subprocess.run(cmd, cwd=self.dosbox_path, capture_output=True, text=True, timeout=30)
             
             # Verificar si se generó el ejecutable
             exe_file = os.path.join(self.tasm_path, f"{output_name}.exe")
             if os.path.exists(exe_file):
-                return True, f"Ejecutable {output_name}.exe generado exitosamente en DOSBox2/Tasm/"
+                return True, f"✅ Ejecutable {output_name}.exe generado exitosamente\n📁 Ubicación: DOSBox2/Tasm/{output_name}.exe"
             else:
-                error_msg = f"Error en la compilación.\n"
+                error_msg = "❌ Error en la compilación Windows.\n"
                 if result.stderr:
-                    error_msg += f"Error stderr: {result.stderr}\n"
+                    error_msg += f"Error: {result.stderr}\n"
                 if result.stdout:
-                    error_msg += f"Output stdout: {result.stdout}\n"
+                    error_msg += f"Output: {result.stdout}\n"
                 return False, error_msg
                 
+        except subprocess.TimeoutExpired:
+            return False, "⏱️ Timeout: La compilación tardó demasiado (>30s)"
         except Exception as e:
-            return False, f"Error al compilar: {str(e)}"
-    
-    def check_wine_installation(self):
-        """Verifica si Wine está instalado en el sistema"""
-        try:
-            result = subprocess.run(["wine", "--version"], capture_output=True, text=True)
-            return result.returncode == 0
-        except FileNotFoundError:
-            return False
+            return False, f"❌ Error al compilar: {str(e)}"
     
     def get_generated_files(self):
-        """Obtiene lista de archivos generados"""
+        """Obtiene lista de archivos generados en Windows"""
         files = []
         for ext in ['.asm', '.obj', '.exe', '.map']:
             pattern = os.path.join(self.tasm_path, f"*{ext}")
             files.extend(glob.glob(pattern))
         return files
+    
+    def verify_windows_setup(self):
+        """Verifica que la configuración de Windows esté completa"""
+        required_files = {
+            "DOSBox": self.dosbox_exe,
+            "TASM": os.path.join(self.tasm_path, "TASM.EXE"),
+            "TLINK": os.path.join(self.tasm_path, "TLINK.EXE")
+        }
+        
+        missing = []
+        for name, path in required_files.items():
+            if not os.path.exists(path):
+                missing.append(f"{name}: {path}")
+        
+        if missing:
+            return False, "Archivos faltantes:\n" + "\n".join(missing)
+        return True, "✅ Configuración Windows verificada"
 
 def test_assembly_generator():
     """Función de prueba para el generador"""

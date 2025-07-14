@@ -1,6 +1,8 @@
+#!/usr/bin/env python3
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog
 import os
+import platform
 from robot_lexical_analyzer import RobotLexicalAnalyzer
 
 class LineNumberText(tk.Frame):
@@ -58,33 +60,129 @@ class LineNumberText(tk.Frame):
         self.update_line_numbers()
 
 class LexicalAnalyzerGUI:
-    """Interfaz gráfica para el analizador léxico"""
+    """Interfaz gráfica para el analizador léxico - Optimizada para Windows"""
     
     def __init__(self):
+        # Configuración específica para Windows
+        self.is_windows = True  # Forzar modo Windows
+        self.is_macos = False
+        self.is_linux = False
+        
+        # Crear ventana principal
         self.root = tk.Tk()
-        self.root.title("Analizador Léxico, Sintáctico y Semántico para Brazo Robótico")
+        self.root.title("Analizador Léxico para Brazo Robótico - Windows Edition")
         self.root.geometry("1200x800")
         self.root.minsize(800, 600)
+        
+        # Configurar para Windows
+        self.root.state('zoomed') if platform.system() == "Windows" else None
         
         # Variables
         self.current_file = None
         self.analyzer = RobotLexicalAnalyzer()
         
-        # Configurar estilo
-        self.setup_styles()
+        # Configurar rutas para Windows
+        self.dosbox_path = os.path.join(os.getcwd(), "DOSBox2")
+        self.tasm_path = os.path.join(self.dosbox_path, "Tasm")
+        
+        # Colores para Windows
+        self.bg_color = 'SystemButtonFace'
         
         # Crear interfaz
-        self.create_widgets()
+        self.create_interface()
         self.create_menu()
         
-    def setup_styles(self):
-        """Configura los estilos de la interfaz"""
-        style = ttk.Style()
-        style.theme_use('clam')
+        print(f"🪟 Analizador iniciado en modo Windows - Compilación .EXE disponible")
+    
+    def create_interface(self):
+        """Crea la interfaz de usuario"""
+        # Frame principal
+        main_frame = tk.Frame(self.root, bg=self.bg_color)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Configurar colores
-        style.configure('Title.TLabel', font=('Arial', 14, 'bold'))
-        style.configure('Button.TButton', font=('Arial', 11))
+        # Título y botones
+        self.create_header(main_frame)
+        
+        # Panel dividido
+        self.create_panels(main_frame)
+        
+        # Barra de estado
+        self.create_status_bar(main_frame)
+    
+    def create_header(self, parent):
+        """Crea el encabezado con título y botones - Optimizado para Windows"""
+        header_frame = tk.Frame(parent, bg=self.bg_color)
+        header_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Título optimizado para Windows
+        title_label = tk.Label(header_frame, 
+                              text="🪟 Analizador Léxico para Brazo Robótico - Windows Edition",
+                              font=('Arial', 16, 'bold'),
+                              bg=self.bg_color, fg='darkblue')
+        title_label.pack(side=tk.LEFT)
+        
+        # Botones optimizados para Windows
+        button_frame = tk.Frame(header_frame, bg=self.bg_color)
+        button_frame.pack(side=tk.RIGHT)
+        
+        # Botones principales con estilos Windows
+        tk.Button(button_frame, text="📂 Abrir", command=self.open_file, 
+                 font=('Arial', 11), width=10, relief='raised').pack(side=tk.LEFT, padx=3)
+        tk.Button(button_frame, text="💾 Guardar", command=self.save_file, 
+                 font=('Arial', 11), width=10, relief='raised').pack(side=tk.LEFT, padx=3)
+        tk.Button(button_frame, text="🔍 Analizar", command=self.analyze_code, 
+                 font=('Arial', 11, 'bold'), width=10, bg='lightblue', relief='raised').pack(side=tk.LEFT, padx=3)
+        
+        # Botón principal para Windows - Generar .EXE
+        tk.Button(button_frame, text="⚙️ Generar .EXE", command=self.generate_executable, 
+                 font=('Arial', 11, 'bold'), width=14, bg='lightgreen', 
+                 relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
+        
+        tk.Button(button_frame, text="🧹 Limpiar", command=self.clear_all, 
+                 font=('Arial', 11), width=10, relief='raised').pack(side=tk.LEFT, padx=3)
+    
+    def create_panels(self, parent):
+        """Crea los paneles del editor y resultados"""
+        # Panel dividido
+        paned = tk.PanedWindow(parent, orient=tk.HORIZONTAL, bg=self.bg_color)
+        paned.pack(fill=tk.BOTH, expand=True)
+        
+        # Panel izquierdo - Editor
+        left_frame = tk.LabelFrame(paned, text="Editor de Código", 
+                                  font=('Arial', 12, 'bold'))
+        paned.add(left_frame, width=600)
+        
+        # Editor con números de línea
+        self.code_editor = LineNumberText(left_frame, wrap=tk.NONE, undo=True)
+        self.code_editor.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Panel derecho - Resultados
+        right_frame = tk.LabelFrame(paned, text="Resultados del Análisis", 
+                                   font=('Arial', 12, 'bold'))
+        paned.add(right_frame, width=600)
+        
+        # Área de salida
+        self.output_text = scrolledtext.ScrolledText(right_frame, wrap=tk.WORD, 
+                                                   font=('Courier', 11), state=tk.DISABLED,
+                                                   bg='white', fg='black')
+        self.output_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Configurar colores del editor de salida
+        self.output_text.tag_configure("error", foreground="red")
+        self.output_text.tag_configure("success", foreground="green")
+        self.output_text.tag_configure("info", foreground="blue")
+    
+    def create_status_bar(self, parent):
+        """Crea la barra de estado - Optimizada para Windows"""
+        status_frame = tk.Frame(parent, bg=self.bg_color, relief='sunken', bd=1)
+        status_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        # Estado específico para Windows
+        self.status_bar = tk.Label(status_frame, 
+                                 text="🪟 Listo - Windows | Compilación .EXE disponible | DOSBox + TASM",
+                                 relief=tk.SUNKEN, font=('Arial', 10),
+                                 bg=self.bg_color, anchor='w')
+        self.status_bar.pack(fill=tk.X, padx=5, pady=2)
     
     def create_menu(self):
         """Crea la barra de menú"""
@@ -97,118 +195,60 @@ class LexicalAnalyzerGUI:
         file_menu.add_command(label="Nuevo", command=self.new_file, accelerator="Ctrl+N")
         file_menu.add_command(label="Abrir", command=self.open_file, accelerator="Ctrl+O")
         file_menu.add_command(label="Guardar", command=self.save_file, accelerator="Ctrl+S")
-        file_menu.add_command(label="Guardar como", command=self.save_file_as, accelerator="Ctrl+Shift+S")
+        file_menu.add_command(label="Guardar como", command=self.save_file_as)
         file_menu.add_separator()
         file_menu.add_command(label="Salir", command=self.root.quit)
         
-        # Menú Análisis
+        # Menú Análisis - Específico para Windows
         analysis_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Análisis", menu=analysis_menu)
-        analysis_menu.add_command(label="Analizar", command=self.analyze_code, accelerator="F5")
-        analysis_menu.add_command(label="Limpiar", command=self.clear_all, accelerator="Ctrl+L")
+        analysis_menu.add_command(label="🔍 Analizar Código", command=self.analyze_code, accelerator="F5")
+        analysis_menu.add_command(label="⚙️ Generar .EXE", command=self.generate_executable, accelerator="F6")
+        analysis_menu.add_separator()
+        analysis_menu.add_command(label="🧹 Limpiar Todo", command=self.clear_all)
         
         # Menú Ayuda
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Ayuda", menu=help_menu)
         help_menu.add_command(label="Acerca de", command=self.show_about)
         
-        # Atajos de teclado
+        # Atajos de teclado - Windows
         self.root.bind('<Control-n>', lambda e: self.new_file())
         self.root.bind('<Control-o>', lambda e: self.open_file())
         self.root.bind('<Control-s>', lambda e: self.save_file())
-        self.root.bind('<Control-Shift-S>', lambda e: self.save_file_as())
         self.root.bind('<F5>', lambda e: self.analyze_code())
-        self.root.bind('<Control-l>', lambda e: self.clear_all())
-    
-    def create_widgets(self):
-        """Crea todos los widgets de la interfaz"""
-        # Frame principal
-        main_frame = ttk.Frame(self.root)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Frame superior con título y botones
-        top_frame = ttk.Frame(main_frame)
-        top_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        # Título
-        title_label = ttk.Label(top_frame, text="Analizador Léxico, Sintáctico y Semántico para Brazo Robótico", style='Title.TLabel')
-        title_label.pack(side=tk.LEFT)
-        
-        # Frame de botones
-        button_frame = ttk.Frame(top_frame)
-        button_frame.pack(side=tk.RIGHT)
-        
-        # Botones principales
-        ttk.Button(button_frame, text="Abrir Archivo", command=self.open_file, style='Button.TButton').pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Guardar", command=self.save_file, style='Button.TButton').pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Analizar", command=self.analyze_code, style='Button.TButton').pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Generar .EXE", command=self.generate_executable, style='Button.TButton').pack(side=tk.LEFT, padx=2)
-        ttk.Button(button_frame, text="Limpiar", command=self.clear_all, style='Button.TButton').pack(side=tk.LEFT, padx=2)
-        
-        # Panel dividido horizontal
-        paned_window = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
-        paned_window.pack(fill=tk.BOTH, expand=True)
-        
-        # Frame izquierdo - Editor
-        left_frame = ttk.LabelFrame(paned_window, text="Editor de Código", padding=5)
-        paned_window.add(left_frame, weight=1)
-        
-        # Editor con números de línea
-        self.code_editor = LineNumberText(left_frame, wrap=tk.NONE, undo=True)
-        self.code_editor.pack(fill=tk.BOTH, expand=True)
-        
-        # Frame derecho - Salida
-        right_frame = ttk.LabelFrame(paned_window, text="Resultados del Análisis", padding=5)
-        paned_window.add(right_frame, weight=1)
-        
-        # Área de salida
-        self.output_text = scrolledtext.ScrolledText(right_frame, wrap=tk.WORD, 
-                                                   font=('Courier', 11), state=tk.DISABLED)
-        self.output_text.pack(fill=tk.BOTH, expand=True)
-        
-        # Barra de estado
-        self.status_bar = ttk.Label(main_frame, text="Listo", relief=tk.SUNKEN)
-        self.status_bar.pack(fill=tk.X, pady=(5, 0))
-        
-        # Configurar colores del editor de salida
-        self.output_text.tag_configure("error", foreground="red")
-        self.output_text.tag_configure("success", foreground="green")
-        self.output_text.tag_configure("info", foreground="blue")
+        self.root.bind('<F6>', lambda e: self.generate_executable())  # Atajo para compilar
     
     def new_file(self):
         """Crea un nuevo archivo"""
-        if self.check_unsaved_changes():
-            self.code_editor.delete(1.0, tk.END)
-            self.current_file = None
-            self.update_title()
-            self.update_status("Nuevo archivo creado")
+        self.code_editor.delete(1.0, tk.END)
+        self.current_file = None
+        self.update_title()
+        self.update_status("Nuevo archivo creado")
     
     def open_file(self):
         """Abre un archivo"""
-        if self.check_unsaved_changes():
-            file_path = filedialog.askopenfilename(
-                title="Abrir archivo",
-                filetypes=[
-                    ("Archivos Robot", "*.robot"),
-                    ("Archivos Brazo", "*.arm"),
-                    ("Archivos RB", "*.rb"),
-                    ("Archivos de texto", "*.txt"),
-                    ("Todos los archivos", "*.*")
-                ]
-            )
-            
-            if file_path:
-                try:
-                    with open(file_path, 'r', encoding='utf-8') as file:
-                        content = file.read()
-                    
-                    self.code_editor.delete(1.0, tk.END)
-                    self.code_editor.insert(1.0, content)
-                    self.current_file = file_path
-                    self.update_title()
-                    self.update_status(f"Archivo abierto: {os.path.basename(file_path)}")
-                except Exception as e:
-                    messagebox.showerror("Error", f"No se pudo abrir el archivo:\n{str(e)}")
+        file_path = filedialog.askopenfilename(
+            title="Abrir archivo",
+            filetypes=[
+                ("Archivos Robot", "*.robot"),
+                ("Archivos de texto", "*.txt"),
+                ("Todos los archivos", "*.*")
+            ]
+        )
+        
+        if file_path:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+                
+                self.code_editor.delete(1.0, tk.END)
+                self.code_editor.insert(1.0, content)
+                self.current_file = file_path
+                self.update_title()
+                self.update_status(f"Archivo abierto: {os.path.basename(file_path)}")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo abrir el archivo:\n{str(e)}")
     
     def save_file(self):
         """Guarda el archivo actual"""
@@ -224,8 +264,6 @@ class LexicalAnalyzerGUI:
             defaultextension=".robot",
             filetypes=[
                 ("Archivos Robot", "*.robot"),
-                ("Archivos Brazo", "*.arm"),
-                ("Archivos RB", "*.rb"),
                 ("Archivos de texto", "*.txt"),
                 ("Todos los archivos", "*.*")
             ]
@@ -257,7 +295,7 @@ class LexicalAnalyzerGUI:
         self.update_status("Analizando código...")
         
         try:
-            # Realizar análisis léxico
+            # Realizar análisis
             tokens, errors = self.analyzer.analyze(code)
             
             # Generar salida formateada
@@ -275,202 +313,252 @@ class LexicalAnalyzerGUI:
             self.update_output(f"Error durante el análisis:\n{str(e)}", "error")
             self.update_status("Error en el análisis")
     
-    def clear_all(self):
-        """Limpia el editor y la salida"""
-        result = messagebox.askyesno("Confirmar", "¿Desea limpiar el editor y los resultados?")
-        if result:
-            self.code_editor.delete(1.0, tk.END)
-            self.update_output("", "info")
-            self.update_status("Editor y resultados limpiados")
-    
-    def update_output(self, text, tag="info"):
-        """Actualiza el área de salida"""
-        self.output_text.config(state=tk.NORMAL)
-        self.output_text.delete(1.0, tk.END)
-        self.output_text.insert(1.0, text, tag)
-        self.output_text.config(state=tk.DISABLED)
-    
-    def update_status(self, message):
-        """Actualiza la barra de estado"""
-        self.status_bar.config(text=message)
-    
-    def update_title(self):
-        """Actualiza el título de la ventana"""
-        if self.current_file:
-            filename = os.path.basename(self.current_file)
-            self.root.title(f"Analizador Léxico - {filename}")
-        else:
-            self.root.title("Analizador Léxico, Sintáctico y Semántico para Brazo Robótico")
-    
-    def check_unsaved_changes(self):
-        """Verifica si hay cambios sin guardar"""
-        # En una implementación más completa, aquí verificarías cambios
-        return True
-    
-    def show_about(self):
-        """Muestra información sobre la aplicación"""
-        messagebox.showinfo(
-            "Acerca de",
-            "Analizador Léxico, Sintáctico y Semántico para Brazo Robótico\n\n"
-            "Desarrollado con Python y tkinter\n"
-            "Versión 5.0 - Generación de Código Intermedio\n\n"
-            "Características:\n"
-            "• Análisis léxico especializado para robótica\n"
-            "• Análisis sintáctico con validación de gramática\n"
-            "• Análisis semántico con validaciones avanzadas\n"
-            "• Generación de código intermedio (cuádruplos)\n"
-            "• Detección de declaraciones duplicadas\n"
-            "• Validación de rangos de valores\n"
-            "• Verificación de robots no declarados\n"
-            "• Detección de tokens desconocidos\n"
-            "• Soporte para bloques de control\n"
-            "• Comandos de espera y repetición\n"
-            "• Estadísticas detalladas\n"
-            "• Interfaz gráfica intuitiva\n\n"
-            "Nueva Sintaxis Soportada:\n"
-            "Robot nombre_robot\n"
-            "nombre_robot.repetir = N\n"
-            "nombre_robot.inicio\n"
-            "  nombre_robot.componente = valor\n"
-            "  nombre_robot.espera = tiempo\n"
-            "nombre_robot.fin\n\n"
-            "Componentes soportados:\n"
-            "• base: 0-360° (gira completa)\n"
-            "• hombro: 0-180° (articulación limitada)\n"
-            "• codo: 0-180° (articulación limitada)\n"
-            "• garra: 0-90° (apertura/cierre)\n"
-            "• muñeca: 0-360° (gira completa)\n"
-            "• velocidad: 0.1-10.0 (velocidad de movimiento)\n"
-            "• repetir: 1-100 (número de repeticiones)\n"
-            "• espera: 0.1-60.0 segundos (tiempo de pausa)\n\n"
-            "Comandos especiales:\n"
-            "• inicio: marca el inicio de un bloque\n"
-            "• fin: marca el final de un bloque\n\n"
-            "Código Intermedio (Cuádruplos):\n"
-            "• DECLARAR: Declaración de robots\n"
-            "• ASIG: Asignación de valores\n"
-            "• CALL: Llamadas a movimientos\n"
-            "• COMPARAR: Comparaciones de control\n"
-            "• SALTO_CONDICIONAL: Saltos condicionales\n"
-            "• SALTO_INCONDICIONAL: Saltos de bucle\n"
-            "• DECREMENTO: Operaciones de contador\n"
-            "• Variables: CX1, CX2 (contadores), T1, T2 (temporales), L1, L2 (etiquetas)\n\n"
-            "Ejemplo completo:\n"
-            "Robot r1\n"
-            "r1.repetir = 3\n"
-            "r1.inicio\n"
-            "  r1.velocidad = 2\n"
-            "  r1.base = 45\n"
-            "  r1.hombro = 120\n"
-            "  r1.espera = 1\n"
-            "r1.fin"
-        )
-    
-    def run(self):
-        """Ejecuta la aplicación"""
-        self.root.mainloop()
-    
     def generate_executable(self):
-        """Genera código ensamblador y compila a ejecutable"""
+        """Genera código ensamblador y compila a ejecutable - Optimizado para Windows"""
         code = self.code_editor.get(1.0, tk.END).strip()
-        
         if not code:
             messagebox.showerror("Error", "No hay código para generar ejecutable")
             return
         
-        # Primero analizar el código
-        self.update_status("Analizando código...")
-        
         try:
-            # Realizar análisis completo
+            # Verificar DOSBox
+            if not os.path.exists(self.dosbox_path):
+                messagebox.showerror("Error de Configuración", 
+                    f"⚠️ DOSBox no encontrado en: {self.dosbox_path}\n\n"
+                    f"Asegúrate de que la carpeta DOSBox2 esté en el directorio del proyecto.\n"
+                    f"Debe contener:\n"
+                    f"• dosbox.exe\n"
+                    f"• Carpeta Tasm/ con TASM.EXE y TLINK.EXE")
+                return
+            
+            # Analizar código
+            self.update_status("🔍 Analizando código robótico...")
             tokens, errors = self.analyzer.analyze(code)
             
             if errors:
-                messagebox.showerror("Error", 
-                    f"No se puede generar ejecutable debido a errores en el análisis:\n" +
-                    "\n".join(errors[:3]) + ("..." if len(errors) > 3 else ""))
+                error_msg = "❌ Errores encontrados en el código:\n\n" + "\n".join(errors[:5])
+                if len(errors) > 5:
+                    error_msg += f"\n... y {len(errors) - 5} errores más"
+                messagebox.showerror("Errores en el Código", error_msg)
                 return
             
             # Solicitar nombre del programa
-            program_name = tk.simpledialog.askstring(
+            program_name = simpledialog.askstring(
                 "Nombre del Programa", 
-                "Ingrese el nombre del programa (sin extensión):",
+                "Ingrese el nombre del programa (sin extensión):\n\n"
+                "Este será el nombre del archivo .exe generado",
                 initialvalue="robot_program"
             )
-            
             if not program_name:
                 return
             
+            # Validar nombre
+            if not program_name.replace('_', '').isalnum():
+                messagebox.showerror("Nombre Inválido", 
+                    "El nombre solo puede contener letras, números y guiones bajos")
+                return
+            
             # Generar y compilar
-            self.update_status("Generando código ensamblador...")
+            self.update_status(f"⚙️ Generando {program_name}.exe con DOSBox + TASM...")
+            
+            # Mostrar progreso
+            progress_window = self.show_compilation_progress(program_name)
+            self.root.update()
+            
             success, message = self.analyzer.generate_and_compile(program_name)
             
+            # Cerrar ventana de progreso
+            progress_window.destroy()
+            
             if success:
-                messagebox.showinfo("Éxito", 
-                    f"✅ {message}\n\n"
-                    f"Archivos generados:\n"
-                    f"• {program_name}.asm (código fuente)\n"
-                    f"• {program_name}.obj (código objeto)\n"
-                    f"• {program_name}.exe (ejecutable)\n\n"
-                    f"Los archivos están en la carpeta DOSBox2/Tasm/\n"
-                    f"El ejecutable puede ser usado en Proteus.")
+                # Verificar archivos generados
+                exe_path = os.path.join(self.tasm_path, f"{program_name}.exe")
+                asm_path = os.path.join(self.tasm_path, f"{program_name}.asm")
+                obj_path = os.path.join(self.tasm_path, f"{program_name}.obj")
                 
-                # Mostrar código ensamblador generado
+                files_info = []
+                if os.path.exists(exe_path):
+                    size = os.path.getsize(exe_path)
+                    files_info.append(f"• {program_name}.exe ({size} bytes)")
+                if os.path.exists(asm_path):
+                    files_info.append(f"• {program_name}.asm (código fuente)")
+                if os.path.exists(obj_path):
+                    files_info.append(f"• {program_name}.obj (código objeto)")
+                
+                success_msg = (
+                    f"✅ Compilación exitosa en Windows\n\n"
+                    f"📁 Archivos generados en DOSBox2\\Tasm\\:\n" + 
+                    "\n".join(files_info) + 
+                    f"\n\n🎯 El archivo {program_name}.exe está listo para usar en Proteus\n"
+                    f"📂 Ubicación: {self.tasm_path}"
+                )
+                
+                messagebox.showinfo("🎉 Compilación Exitosa", success_msg)
+                
+                # Mostrar código ensamblador
                 asm_code, error = self.analyzer.generate_assembly_code(program_name)
                 if asm_code:
                     self.show_assembly_code(asm_code, program_name)
                 
-                self.update_status(f"Ejecutable {program_name}.exe generado exitosamente")
+                self.update_status(f"✅ {program_name}.exe generado exitosamente en DOSBox2\\Tasm\\")
             else:
-                messagebox.showerror("Error", f"❌ {message}")
-                self.update_status("Error al generar ejecutable")
+                messagebox.showerror("❌ Error de Compilación", 
+                    f"Error durante la compilación:\n\n{message}\n\n"
+                    f"Verificaciones:\n"
+                    f"• DOSBox instalado correctamente\n"
+                    f"• TASM.EXE y TLINK.EXE en Tasm/\n"
+                    f"• Permisos de escritura en la carpeta")
+                self.update_status("❌ Error en la compilación")
                 
         except Exception as e:
-            messagebox.showerror("Error", f"Error inesperado:\n{str(e)}")
-            self.update_status("Error en la generación")
+            messagebox.showerror("Error Inesperado", 
+                f"❌ Error durante la generación:\n\n{str(e)}\n\n"
+                f"Contacta al desarrollador si el problema persiste")
+            self.update_status("❌ Error inesperado")
+    
+    def show_compilation_progress(self, program_name):
+        """Muestra ventana de progreso durante la compilación"""
+        progress_window = tk.Toplevel(self.root)
+        progress_window.title("Compilando...")
+        progress_window.geometry("400x150")
+        progress_window.resizable(False, False)
+        
+        # Centrar ventana
+        progress_window.transient(self.root)
+        progress_window.grab_set()
+        
+        tk.Label(progress_window, text="🔧 Compilando código robótico", 
+                font=('Arial', 12, 'bold')).pack(pady=10)
+        tk.Label(progress_window, text=f"Programa: {program_name}.exe", 
+                font=('Arial', 10)).pack(pady=5)
+        tk.Label(progress_window, text="DOSBox + TASM trabajando...", 
+                font=('Arial', 10)).pack(pady=5)
+        
+        # Barra de progreso indeterminada
+        import tkinter.ttk as ttk
+        progress_bar = ttk.Progressbar(progress_window, mode='indeterminate')
+        progress_bar.pack(pady=10, padx=20, fill='x')
+        progress_bar.start()
+        
+        return progress_window
+    
+    def update_status(self, message):
+        """Actualiza la barra de estado - Windows Edition"""
+        self.status_bar.config(text=f"🪟 {message}")
+    
+    def update_title(self):
+        """Actualiza el título de la ventana - Windows Edition"""
+        if self.current_file:
+            filename = os.path.basename(self.current_file)
+            self.root.title(f"🪟 Analizador Léxico - {filename} - Windows Edition")
+        else:
+            self.root.title("🪟 Analizador Léxico para Brazo Robótico - Windows Edition")
+    
+    def show_about(self):
+        """Muestra información sobre la aplicación - Windows Edition"""
+        messagebox.showinfo("Acerca de - Windows Edition",
+            f"🪟 Analizador Léxico para Brazo Robótico\n"
+            f"Windows Edition - Versión 5.0\n\n"
+            f"💻 Sistema: Windows (Optimizado)\n"
+            f"⚙️ Compilación: DOSBox + TASM integrado\n"
+            f"� Target: Archivos .EXE para Proteus\n\n"
+            f"🚀 Funciones completas:\n"
+            f"• Análisis léxico, sintáctico y semántico\n"
+            f"• Generación de código intermedio (cuádruplos)\n"
+            f"• Compilación nativa a archivos .EXE\n"
+            f"• Validaciones avanzadas\n"
+            f"• Interfaz optimizada para Windows\n\n"
+            f"📝 Sintaxis soportada:\n"
+            f"Robot nombre\n"
+            f"nombre.componente = valor\n"
+            f"nombre.inicio ... nombre.fin\n\n"
+            f"� Archivos generados en: DOSBox2\\Tasm\\")
     
     def show_assembly_code(self, asm_code, program_name):
-        """Muestra el código ensamblador generado en una ventana separada"""
-        # Crear ventana para mostrar código ensamblador
+        """Muestra el código ensamblador generado - Windows optimizado"""
         asm_window = tk.Toplevel(self.root)
-        asm_window.title(f"Código Ensamblador - {program_name}.asm")
-        asm_window.geometry("800x600")
+        asm_window.title(f"🪟 Código Ensamblador - {program_name}.asm")
+        asm_window.geometry("900x700")
+        asm_window.state('normal')
         
-        # Área de texto con scroll
-        text_area = scrolledtext.ScrolledText(asm_window, wrap=tk.NONE, font=('Courier', 10))
-        text_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Frame principal
+        main_frame = tk.Frame(asm_window)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Insertar código
+        # Título
+        title_frame = tk.Frame(main_frame)
+        title_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        tk.Label(title_frame, text=f"📄 Código Ensamblador Generado", 
+                font=('Arial', 14, 'bold')).pack(side=tk.LEFT)
+        tk.Label(title_frame, text=f"Compatible con TASM", 
+                font=('Arial', 10), fg='green').pack(side=tk.RIGHT)
+        
+        # Área de texto con scroll mejorado
+        text_frame = tk.Frame(main_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        text_area = scrolledtext.ScrolledText(text_frame, wrap=tk.NONE, 
+                                            font=('Courier New', 10),
+                                            bg='#f8f8f8', fg='black')
+        text_area.pack(fill=tk.BOTH, expand=True)
         text_area.insert(1.0, asm_code)
         text_area.config(state=tk.DISABLED)
         
-        # Botón para guardar
-        button_frame = ttk.Frame(asm_window)
-        button_frame.pack(fill=tk.X, padx=10, pady=5)
+        # Botones mejorados
+        button_frame = tk.Frame(main_frame)
+        button_frame.pack(fill=tk.X, pady=(10, 0))
         
         def save_asm():
             file_path = filedialog.asksaveasfilename(
                 title="Guardar código ensamblador",
                 defaultextension=".asm",
-                filetypes=[("Archivos Ensamblador", "*.asm"), ("Todos los archivos", "*.*")]
+                filetypes=[("Archivos Ensamblador", "*.asm"), ("Todos los archivos", "*.*")],
+                initialvalue=f"{program_name}.asm"
             )
             if file_path:
                 try:
                     with open(file_path, 'w', encoding='utf-8') as f:
                         f.write(asm_code)
-                    messagebox.showinfo("Guardado", f"Código ensamblador guardado en:\n{file_path}")
+                    messagebox.showinfo("💾 Guardado", 
+                        f"Código ensamblador guardado exitosamente:\n\n{file_path}")
                 except Exception as e:
-                    messagebox.showerror("Error", f"No se pudo guardar el archivo:\n{str(e)}")
+                    messagebox.showerror("❌ Error", f"No se pudo guardar:\n{str(e)}")
         
-        ttk.Button(button_frame, text="Guardar Como...", command=save_asm).pack(side=tk.RIGHT)
-        ttk.Button(button_frame, text="Cerrar", command=asm_window.destroy).pack(side=tk.RIGHT, padx=5)
-
+        def open_folder():
+            """Abre la carpeta donde está el archivo .exe"""
+            try:
+                os.startfile(self.tasm_path)
+            except:
+                messagebox.showinfo("📁 Ubicación", f"Los archivos están en:\n{self.tasm_path}")
+        
+        tk.Button(button_frame, text="📁 Abrir Carpeta", command=open_folder,
+                 font=('Arial', 10), relief='raised').pack(side=tk.LEFT, padx=5)
+        tk.Button(button_frame, text="💾 Guardar Como...", command=save_asm,
+                 font=('Arial', 10), relief='raised').pack(side=tk.RIGHT, padx=5)
+        tk.Button(button_frame, text="❌ Cerrar", command=asm_window.destroy,
+                 font=('Arial', 10), relief='raised').pack(side=tk.RIGHT)
+    
+    def run(self):
+        """Ejecuta la aplicación"""
+        self.root.mainloop()
 
 if __name__ == "__main__":
     try:
+        print("🪟 ===============================================")
+        print("🪟 ANALIZADOR LÉXICO PARA BRAZO ROBÓTICO")
+        print("🪟 Windows Edition - Versión 5.0")
+        print("🪟 ===============================================")
+        print("🪟 Optimizado para Windows con compilación .EXE")
+        print("🪟 DOSBox + TASM integrado")
+        print("🪟 Iniciando aplicación...")
+        print("🪟 ===============================================")
+        
         app = LexicalAnalyzerGUI()
         app.run()
+        
     except Exception as e:
-        print(f"Error al iniciar la aplicación: {e}")
+        print(f"❌ Error crítico: {e}")
         import traceback
         traceback.print_exc()
+        input("Presiona Enter para salir...")
