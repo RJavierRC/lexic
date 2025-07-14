@@ -11,34 +11,7 @@ import glob
 from datetime import datetime
 
 class AssemblyGenerator:
-    """Generad        try:
-            # Verificar que estamos en Windows
-                       # Ejecutar DOSBox con archivo de configuración específico
-            cmd = [
-                self.dosbox_exe, 
-                "-conf", self.config_file,
-                "-c", "mount c .", 
-                "-c", "c:", 
-                "-c", "compile_windows.bat", 
-                "-c", "exit"
-            ]
-            
-            print(f"Ejecutando compilación: {output_name}.exe con configuración personalizada")
-            result = subprocess.run(cmd, cwd=self.dosbox_path, capture_output=True, text=True, timeout=30)s.name != 'nt':
-                return False, "Esta versión está optimizada para Windows."
-            
-            # Verificar DOSBox
-            if not os.path.exists(self.dosbox_exe):
-                return False, f"DOSBox no encontrado en: {self.dosbox_exe}"
-            
-            # Verificar archivo de configuración
-            if not os.path.exists(self.config_file):
-                return False, f"Archivo de configuración no encontrado: {self.config_file}"
-            
-            # Crear archivo .asm
-            asm_file = os.path.join(self.tasm_path, f"{output_name}.asm")
-            with open(asm_file, 'w', encoding='utf-8') as f:
-                f.write(asm_code)ensamblador desde cuádruplos"""
+    """Generador de ensamblador desde cuádruplos"""
     
     def __init__(self):
         self.variables = {}  # Variables declaradas
@@ -47,15 +20,39 @@ class AssemblyGenerator:
         self.temp_vars = {}  # Variables temporales
         self.code_lines = []
         self.data_lines = []
-        self.ports = {
-            'base': 'PORTA',
-            'hombro': 'PORTB', 
-            'codo': 'PORTC',
-            'garra': 'PORTD',
-            'muneca': 'PORTE',
-            'velocidad': 'PORTF'
-        }
         
+        # Configuración específica para Windows
+        self.is_windows = os.name == 'nt'
+        
+        # Rutas del sistema
+        self.base_path = os.path.dirname(os.path.abspath(__file__))
+        self.dosbox_path = os.path.join(self.base_path, "DOSBox2")
+        self.dosbox_exe = os.path.join(self.dosbox_path, "dosbox.exe")
+        self.tasm_path = os.path.join(self.dosbox_path, "Tasm")
+        self.config_file = os.path.join(self.dosbox_path, "configuracion.conf")
+        
+        # Verificar archivos críticos
+        self.verify_system_files()
+        
+    def verify_system_files(self):
+        """Verifica la existencia de archivos críticos para el funcionamiento"""
+        if self.is_windows:
+            # Verificar DOSBox
+            if not os.path.exists(self.dosbox_exe):
+                raise FileNotFoundError(f"DOSBox no encontrado en: {self.dosbox_exe}")
+            
+            # Verificar TASM y TLINK
+            for tool in ["TASM.EXE", "TLINK.EXE"]:
+                tool_path = os.path.join(self.tasm_path, tool)
+                if not os.path.exists(tool_path):
+                    raise FileNotFoundError(f"{tool} no encontrado en: {tool_path}")
+            
+            # Verificar archivo de configuración
+            if not os.path.exists(self.config_file):
+                raise FileNotFoundError(f"Archivo de configuración no encontrado: {self.config_file}")
+        else:
+            raise EnvironmentError("Este programa está optimizado para ejecutarse en Windows.")
+    
     def generate_assembly(self, cuadruplos, program_name="robot_program"):
         """Genera código ensamblador completo desde cuádruplos"""
         self.reset()
@@ -294,18 +291,22 @@ class DOSBoxController:
         try:
             # Verificar que estamos en Windows
             if os.name != 'nt':
-                return False, "⚠️ Esta versión está optimizada para Windows."
+                return False, "Esta versión está optimizada para Windows."
             
             # Verificar DOSBox
             if not os.path.exists(self.dosbox_exe):
-                return False, f"❌ DOSBox no encontrado en: {self.dosbox_exe}"
+                return False, f"DOSBox no encontrado en: {self.dosbox_exe}"
+            
+            # Verificar archivo de configuración
+            if not os.path.exists(self.config_file):
+                return False, f"Archivo de configuración no encontrado: {self.config_file}"
             
             # Crear archivo .asm
             asm_file = os.path.join(self.tasm_path, f"{output_name}.asm")
             with open(asm_file, 'w', encoding='utf-8') as f:
                 f.write(asm_code)
             
-            # Script de compilación optimizado para Windows
+            # Script de compilación mejorado para Windows
             batch_script = f"""@echo off
 echo ================================================
 echo ANALIZADOR LEXICO - COMPILACION WINDOWS
@@ -313,18 +314,28 @@ echo ================================================
 echo Programa: {output_name.upper()}.EXE
 echo ================================================
 cd Tasm
+echo Verificando archivos iniciales:
+dir {output_name}.asm
+echo.
 echo [1/3] Ejecutando TASM...
 TASM {output_name}.asm
-if errorlevel 1 goto error
+if errorlevel 1 goto error_tasm
+echo TASM ejecutado, verificando OBJ:
+dir {output_name}.obj
+echo.
 echo [2/3] Ejecutando TLINK...
 TLINK {output_name}.obj
-if errorlevel 1 goto error
-echo [3/3] Verificando resultado...
+if errorlevel 1 goto error_tlink
+echo TLINK ejecutado, verificando EXE:
+dir {output_name}.exe
+echo.
+echo [3/3] Verificando resultado final...
 if exist "{output_name}.exe" (
-    echo ✓ {output_name}.exe creado exitosamente
+    echo {output_name}.exe creado exitosamente
     goto success
 ) else (
-    goto error
+    echo ERROR: {output_name}.exe no se generó
+    goto error_final
 )
 
 :success
@@ -333,13 +344,25 @@ echo          COMPILACION EXITOSA
 echo ================================================
 goto end
 
-:error
+:error_tasm
 echo ================================================
-echo         ERROR DE COMPILACION
+echo         ERROR EN TASM
 echo ================================================
+goto end
+
+:error_tlink
+echo ================================================
+echo         ERROR EN TLINK  
+echo ================================================
+goto end
+
+:error_final
+echo ================================================
+echo         ERROR: EXE NO GENERADO
+echo ================================================
+goto end
 
 :end
-timeout /t 2 /nobreak >nul
 """
             
             batch_file = os.path.join(self.dosbox_path, "compile_windows.bat")
@@ -347,9 +370,16 @@ timeout /t 2 /nobreak >nul
                 f.write(batch_script)
             
             # Ejecutar DOSBox con configuración optimizada para Windows
-            cmd = [self.dosbox_exe, "-c", "mount c .", "-c", "c:", "-c", "compile_windows.bat", "-c", "exit"]
+            cmd = [
+                self.dosbox_exe, 
+                "-conf", self.config_file,
+                "-c", "mount c .",
+                "-c", "c:",
+                "-c", "compile_windows.bat",
+                "-c", "exit"
+            ]
             
-            print(f"🔧 Ejecutando compilación: {output_name}.exe")
+            print(f"Ejecutando compilación: {output_name}.exe con configuración personalizada")
             result = subprocess.run(cmd, cwd=self.dosbox_path, capture_output=True, text=True, timeout=30)
             
             # Verificar si se generó el ejecutable
@@ -357,11 +387,21 @@ timeout /t 2 /nobreak >nul
             if os.path.exists(exe_file):
                 return True, f"Ejecutable {output_name}.exe generado exitosamente\nUbicación: DOSBox2/Tasm/{output_name}.exe"
             else:
-                error_msg = "Error en la compilación Windows.\n"
+                # Error detallado para diagnóstico
+                error_msg = f"Error en la compilación Windows.\n\n"
+                error_msg += f"Archivos verificados:\n"
+                error_msg += f"- ASM: {'OK' if os.path.exists(asm_file) else 'FALTA'}\n"
+                error_msg += f"- OBJ: {'OK' if os.path.exists(os.path.join(self.tasm_path, f'{output_name}.obj')) else 'FALTA'}\n"
+                error_msg += f"- EXE: {'OK' if os.path.exists(exe_file) else 'FALTA'}\n\n"
+                
                 if result.stderr:
-                    error_msg += f"Error: {result.stderr}\n"
+                    error_msg += f"Error stderr: {result.stderr}\n"
                 if result.stdout:
-                    error_msg += f"Output: {result.stdout}\n"
+                    error_msg += f"Output stdout: {result.stdout}\n"
+                    
+                error_msg += f"\nComando ejecutado: {' '.join(cmd)}\n"
+                error_msg += f"Return code: {result.returncode}\n"
+                
                 return False, error_msg
                 
         except subprocess.TimeoutExpired:
