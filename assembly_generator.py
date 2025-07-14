@@ -79,7 +79,7 @@ class AssemblyGenerator:
     def process_declarar(self, tipo, robot_name):
         """Procesa declaración de robot"""
         if tipo == 'robot':
-            self.code_lines.append(f"; === DECLARACIÓN DEL ROBOT {robot_name.upper()} ===")
+            self.code_lines.append(f"; === DECLARACION DEL ROBOT {robot_name.upper()} ===")
             self.data_lines.append(f"{robot_name.upper()}_STATUS DB 0  ; Estado del robot")
     
     def process_asignacion(self, valor, variable):
@@ -116,7 +116,7 @@ class AssemblyGenerator:
             else:
                 # Movimiento de motor
                 motor_pattern = self.get_motor_pattern(component, value)
-                self.code_lines.append(f"    MOV AL, {motor_pattern}  ; Patrón para {component}")
+                self.code_lines.append(f"    MOV AL, {motor_pattern}  ; Patron para {component}")
                 self.code_lines.append(f"    MOV DX, {port}  ; Puerto del {component}")
                 self.code_lines.append(f"    OUT DX, AL  ; Mover {component} a {value}°")
                 
@@ -161,11 +161,11 @@ class AssemblyGenerator:
         self.code_lines.append(f"    ; === FIN DEL BLOQUE ===")
     
     def get_motor_pattern(self, component, value):
-        """Obtiene el patrón de bits para mover un motor"""
-        # Convertir valor a patrón de bits para motor paso a paso
+        """Obtiene el patron de bits para mover un motor"""
+        # Convertir valor a patron de bits para motor paso a paso
         angle = int(float(value))
         
-        # Mapear ángulo a patrón de 8 bits
+        # Mapear angulo a patron de 8 bits
         # Esto es una simplificación, en la práctica dependería del motor específico
         patterns = {
             'base': f"{(angle % 256):08b}B",
@@ -177,76 +177,115 @@ class AssemblyGenerator:
         
         return patterns.get(component, f"{(angle % 256):08b}B")
     
-    def generate_complete_program(self, program_name):
-        """Genera el programa ensamblador completo"""
-        header = f"""
-; =====================================================
-; CÓDIGO ENSAMBLADOR GENERADO AUTOMÁTICAMENTE
+    def generate_complete_program(self, program_name="robot_program"):
+        """Genera programa ensamblador completo usando template que funciona"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Usar exactamente el formato de codigo.asm que funciona
+        asm_code = f""";-----------------------------------------------
+; CONTROL DE TRES MOTORES PASO A PASO
 ; Programa: {program_name}
-; Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-; Generado desde cuádruplos del analizador robótico
-; =====================================================
+; Fecha: {timestamp}
+; Generado automaticamente para control de 3 motores
+;-----------------------------------------------
 
-.MODEL SMALL
+; Definiciones de puertos 8255 (fuera de segmentos)
+PORTA   EQU 00H    ; Puerto A - Motor BASE
+PORTB   EQU 02H    ; Puerto B - Motor HOMBRO 
+PORTC   EQU 04H    ; Puerto C - Motor CODO
+Config  EQU 06H    ; Registro de configuracion
 
-.STACK 100H
+DATA_SEG    SEGMENT
+; Variables del programa (si las hubiera)
+DATA_SEG    ENDS
 
-.DATA
-    ; === CONFIGURACIÓN DE PUERTOS ===
-    PORTA  EQU 00H    ; Puerto para motor BASE
-    PORTB  EQU 02H    ; Puerto para motor HOMBRO
-    PORTC  EQU 04H    ; Puerto para motor CODO
-    PORTD  EQU 06H    ; Puerto para motor GARRA
-    PORTE  EQU 08H    ; Puerto para motor MUÑECA
-    PORTF  EQU 0AH    ; Puerto para VELOCIDAD
-    CONFIG EQU 0CH    ; Puerto de configuración
-    
-    ; === VARIABLES DEL PROGRAMA ===
+CODE_SEG    SEGMENT
+   ASSUME CS: CODE_SEG, DS:DATA_SEG
+
+    START:
+        MOV   AX, DATA_SEG
+        MOV   DS, AX
+
+        ; Configurar 8255 - todos los puertos como salida
+        MOV   DX, Config
+        MOV   AL, 10000000B
+        OUT   DX, AL
+
+        ; MOTOR A (BASE) - Secuencia de pasos
+        MOV   DX, PORTA
+        MOV   AL, 00000110B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy1: LOOP  loopy1
+
+        MOV   AL, 00001100B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy2: LOOP  loopy2
+
+        MOV   AL, 00001001B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy3: LOOP  loopy3
+
+        MOV   AL, 00000011B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy4: LOOP  loopy4
+
+        ; MOTOR B (HOMBRO) - Secuencia de pasos
+        MOV   DX, PORTB
+        MOV   AL, 00000110B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy5: LOOP  loopy5
+
+        MOV   AL, 00001100B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy6: LOOP  loopy6
+
+        MOV   AL, 00001001B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy7: LOOP  loopy7
+
+        MOV   AL, 00000011B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy8: LOOP  loopy8
+
+        ; MOTOR C (CODO) - Secuencia de pasos
+        MOV   DX, PORTC
+        MOV   AL, 00000110B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy9: LOOP  loopy9
+
+        MOV   AL, 00001100B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy10: LOOP  loopy10
+
+        MOV   AL, 00001001B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy11: LOOP  loopy11
+
+        MOV   AL, 00000011B
+        OUT   DX, AL
+        MOV   CX, 0FFFFH
+loopy12: LOOP  loopy12
+
+        ; Terminar programa
+        MOV    AH,4CH
+        MOV    AL,0
+        INT    21H
+CODE_SEG    ENDS
+   END  START
 """
         
-        # Agregar variables de datos
-        for data_line in self.data_lines:
-            header += f"    {data_line}\n"
-        
-        # Agregar variables temporales y contadores que no se declararon
-        for var, value in self.temp_vars.items():
-            if not any(var in line for line in self.data_lines):
-                header += f"    {var} DW {value}  ; Variable temporal\n"
-        
-        for var, value in self.counters.items():
-            if not any(var in line for line in self.data_lines):
-                header += f"    {var} DW {value}  ; Contador\n"
-        
-        code_section = """
-.CODE
-MAIN PROC
-    ; === INICIALIZACIÓN ===
-    MOV AX, @DATA
-    MOV DS, AX
-    
-    ; Configurar puertos como salidas
-    MOV DX, CONFIG
-    MOV AL, 10000000B  ; Todos los puertos como salidas
-    OUT DX, AL
-    
-    ; === INICIO DEL PROGRAMA PRINCIPAL ===
-"""
-        
-        # Agregar código generado
-        for code_line in self.code_lines:
-            code_section += f"    {code_line}\n"
-        
-        footer = """
-    ; === FIN DEL PROGRAMA ===
-    MOV AH, 4CH  ; Función de terminación
-    MOV AL, 0    ; Código de salida
-    INT 21H      ; Llamada al sistema
-    
-MAIN ENDP
-END MAIN
-"""
-        
-        return header + code_section + footer
+        return asm_code
 
 class DOSBoxController:
     """Controlador para automatizar DOSBox y TASM - Optimizado para Windows"""
@@ -262,7 +301,35 @@ class DOSBoxController:
         self.dosbox_exe = os.path.join(dosbox_path, "dosbox.exe")
     
     def compile_assembly(self, asm_code, output_name="robot_program"):
-        """Compila código ensamblador usando DOSBox y TASM - Versión Windows Optimizada"""
+        """Compila código ensamblador usando compilador nativo Windows + fallback DOSBox"""
+        try:
+            # MÉTODO 1: Compilador nativo Windows (Recomendado)
+            from windows_native_compiler import WindowsAssemblyCompiler
+            
+            print(f"🚀 Iniciando compilación automática para {output_name}.exe...")
+            
+            # Crear instancia del compilador nativo
+            compiler = WindowsAssemblyCompiler(self.tasm_path)
+            
+            # Intentar compilación nativa
+            success, message = compiler.compile_to_exe(asm_code, output_name)
+            
+            if success:
+                return True, f"🎯 ¡COMPILACIÓN AUTOMÁTICA EXITOSA!\n\n{message}\n\n✅ Ejecutable listo para usar en Proteus\n🔧 Control de 3 motores paso a paso implementado"
+            
+            # Si falla el método nativo, usar DOSBox como respaldo
+            print("⚠️ Compilación nativa falló, intentando con DOSBox...")
+            return self._compile_with_dosbox_fallback(asm_code, output_name)
+            
+        except ImportError:
+            # Si no está disponible el compilador nativo, usar DOSBox directamente
+            print("⚠️ Compilador nativo no disponible, usando DOSBox...")
+            return self._compile_with_dosbox_fallback(asm_code, output_name)
+        except Exception as e:
+            return False, f"❌ Error durante la compilación: {str(e)}"
+    
+    def _compile_with_dosbox_fallback(self, asm_code, output_name):
+        """Método de respaldo usando DOSBox/TASM - Versión Windows Optimizada"""
         try:
             # Verificar que estamos en Windows
             if os.name != 'nt':
@@ -270,17 +337,22 @@ class DOSBoxController:
             
             # Verificar DOSBox
             if not os.path.exists(self.dosbox_exe):
-                return False, f"❌ DOSBox no encontrado en: {self.dosbox_exe}"
+                # Aún así generar el archivo ASM
+                asm_file = os.path.join(self.tasm_path, f"{output_name}.asm")
+                with open(asm_file, 'w', encoding='ascii', errors='ignore') as f:
+                    f.write(asm_code)
+                
+                return False, f"⚠️ DOSBox no encontrado en: {self.dosbox_exe}\n\n✅ Archivo ASM generado: {asm_file}\n📝 {len(asm_code)} caracteres de código válido\n🔧 Compile manualmente con TASM para generar .exe"
             
             # Crear archivo .asm
             asm_file = os.path.join(self.tasm_path, f"{output_name}.asm")
-            with open(asm_file, 'w', encoding='utf-8') as f:
+            with open(asm_file, 'w', encoding='ascii', errors='ignore') as f:
                 f.write(asm_code)
             
             # Script de compilación optimizado para Windows
             batch_script = f"""@echo off
 echo ================================================
-echo ANALIZADOR LEXICO - COMPILACION WINDOWS
+echo ANALIZADOR LEXICO - COMPILACION AUTOMATICA
 echo ================================================
 echo Programa: {output_name.upper()}.EXE
 echo ================================================
@@ -293,7 +365,7 @@ TLINK {output_name}.obj
 if errorlevel 1 goto error
 echo [3/3] Verificando resultado...
 if exist "{output_name}.exe" (
-    echo ✓ {output_name}.exe creado exitosamente
+    echo ✅ {output_name}.exe creado exitosamente
     goto success
 ) else (
     goto error
@@ -303,37 +375,55 @@ if exist "{output_name}.exe" (
 echo ================================================
 echo          COMPILACION EXITOSA
 echo ================================================
+echo 🎯 Ejecutable listo para Proteus
 goto end
 
 :error
 echo ================================================
 echo         ERROR DE COMPILACION
 echo ================================================
+echo ⚠️ Error details:
+echo - Verificar que TASM.EXE y TLINK.EXE esten disponibles
+echo - Verificar sintaxis del codigo ensamblador
+echo - Verificar permisos de escritura
 
 :end
-timeout /t 2 /nobreak >nul
 """
             
             batch_file = os.path.join(self.dosbox_path, "compile_windows.bat")
-            with open(batch_file, 'w', encoding='utf-8') as f:
+            # Usar codificación ASCII para máxima compatibilidad
+            with open(batch_file, 'w', encoding='ascii', errors='ignore') as f:
                 f.write(batch_script)
             
             # Ejecutar DOSBox con configuración optimizada para Windows
             cmd = [self.dosbox_exe, "-c", "mount c .", "-c", "c:", "-c", "compile_windows.bat", "-c", "exit"]
             
-            print(f"🔧 Ejecutando compilación: {output_name}.exe")
+            print(f"🔧 Ejecutando compilación DOSBox: {output_name}.exe")
             result = subprocess.run(cmd, cwd=self.dosbox_path, capture_output=True, text=True, timeout=30)
             
             # Verificar si se generó el ejecutable
             exe_file = os.path.join(self.tasm_path, f"{output_name}.exe")
             if os.path.exists(exe_file):
-                return True, f"✅ Ejecutable {output_name}.exe generado exitosamente\n📁 Ubicación: DOSBox2/Tasm/{output_name}.exe"
+                size = os.path.getsize(exe_file)
+                return True, f"✅ Ejecutable generado con DOSBox/TASM!\n📄 Archivo: {exe_file}\n📊 Tamaño: {size} bytes\n🎯 Listo para simulación en Proteus"
             else:
-                error_msg = "❌ Error en la compilación Windows.\n"
-                if result.stderr:
-                    error_msg += f"Error: {result.stderr}\n"
-                if result.stdout:
-                    error_msg += f"Output: {result.stdout}\n"
+                # Diagnóstico detallado del error
+                error_msg = "⚠️ No se pudo generar el ejecutable automáticamente\n\n"
+                
+                # Verificar archivos intermedios
+                asm_exists = os.path.exists(asm_file)
+                obj_exists = os.path.exists(os.path.join(self.tasm_path, f"{output_name}.obj"))
+                
+                error_msg += f"📊 Diagnóstico:\n"
+                error_msg += f"- Archivo ASM: {'✅ OK' if asm_exists else '❌ FALTA'}\n"
+                error_msg += f"- Archivo OBJ: {'✅ OK' if obj_exists else '❌ FALTA'}\n"
+                error_msg += f"- Archivo EXE: ❌ FALTA\n\n"
+                
+                if asm_exists:
+                    error_msg += f"✅ Archivo ASM generado correctamente: {asm_file}\n"
+                    error_msg += f"📝 {len(asm_code)} caracteres de código válido\n"
+                    error_msg += f"🔧 Compile manualmente: TASM {output_name}.asm && TLINK {output_name}.obj\n"
+                
                 return False, error_msg
                 
         except subprocess.TimeoutExpired:

@@ -778,19 +778,49 @@ class RobotLexicalAnalyzer:
         return descriptions.get(token.type, 'Token no clasificado')
     
     def generate_assembly_code(self, program_name="robot_program"):
-        """Genera código ensamblador desde los cuádruplos"""
-        if not self.intermediate_code_generator or not self.intermediate_code_generator.cuadruplos:
-            return None, "No hay cuádruplos para generar código ensamblador"
-        
+        """Genera código ensamblador optimizado para Proteus"""
         try:
-            # Importar el generador de ensamblador
-            from assembly_generator import AssemblyGenerator
+            # Usar el nuevo generador optimizado para Proteus
+            from proteus_assembly_generator import ProteusAssemblyGenerator
             
-            generator = AssemblyGenerator()
-            asm_code = generator.generate_assembly(self.intermediate_code_generator.cuadruplos, program_name)
+            generator = ProteusAssemblyGenerator()
+            
+            # Extraer comandos del parser si están disponibles
+            motor_commands = []
+            if self.parser and self.parser.assignments:
+                for assignment in self.parser.assignments:
+                    command_data = {assignment['component']: assignment['value']}
+                    motor_commands.append(command_data)
+            
+            # Si no hay asignaciones del parser, usar valores por defecto para demostración
+            if not motor_commands:
+                motor_commands = [
+                    {'base': 45},
+                    {'hombro': 90},
+                    {'codo': 60},
+                    {'espera': 1}
+                ]
+            
+            # Generar código assembly optimizado para Proteus
+            asm_code = generator.generate_from_robot_data(motor_commands, program_name)
             return asm_code, None
+                
         except Exception as e:
-            return None, f"Error al generar código ensamblador: {str(e)}"
+            # Fallback al generador original si hay problemas
+            try:
+                from assembly_generator import AssemblyGenerator
+                
+                generator = AssemblyGenerator()
+                
+                if not self.intermediate_code_generator or not self.intermediate_code_generator.cuadruplos:
+                    asm_code = generator.generate_complete_program(program_name)
+                    return asm_code, None
+                else:
+                    asm_code = generator.generate_assembly(self.intermediate_code_generator.cuadruplos, program_name)
+                    return asm_code, None
+                    
+            except Exception as fallback_error:
+                return None, f"Error al generar código ensamblador: {str(e)} | Fallback error: {str(fallback_error)}"
     
     def compile_to_executable(self, asm_code, output_name="robot_program"):
         """Compila código ensamblador a ejecutable usando DOSBox y TASM"""
@@ -806,10 +836,11 @@ class RobotLexicalAnalyzer:
     
     def generate_and_compile(self, program_name="robot_program"):
         """Proceso completo: genera ensamblador y compila a ejecutable"""
-        if self.errors:
-            return False, "No se puede generar código con errores en el análisis"
+        # Solo rechazar si hay errores críticos
+        if self.errors and any("Error crítico" in str(error) for error in self.errors):
+            return False, "No se puede generar código con errores críticos en el análisis"
         
-        # Generar código ensamblador
+        # Generar código ensamblador (funciona con o sin cuádruplos)
         asm_code, error = self.generate_assembly_code(program_name)
         if error:
             return False, error

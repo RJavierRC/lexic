@@ -331,16 +331,39 @@ class LexicalAnalyzerGUI:
                     f"• Carpeta Tasm/ con TASM.EXE y TLINK.EXE")
                 return
             
+            # Verificar archivos TASM
+            tasm_exe = os.path.join(self.tasm_path, "TASM.EXE")
+            tlink_exe = os.path.join(self.tasm_path, "TLINK.EXE")
+            if not os.path.exists(tasm_exe) or not os.path.exists(tlink_exe):
+                messagebox.showerror("Error de Configuración", 
+                    f"❌ Archivos de compilación faltantes:\n\n"
+                    f"• TASM.EXE: {'✓' if os.path.exists(tasm_exe) else '❌'}\n"
+                    f"• TLINK.EXE: {'✓' if os.path.exists(tlink_exe) else '❌'}\n\n"
+                    f"Verifica la carpeta: {self.tasm_path}")
+                return
+            
             # Analizar código
             self.update_status("🔍 Analizando código robótico...")
             tokens, errors = self.analyzer.analyze(code)
             
-            if errors:
-                error_msg = "❌ Errores encontrados en el código:\n\n" + "\n".join(errors[:5])
-                if len(errors) > 5:
-                    error_msg += f"\n... y {len(errors) - 5} errores más"
-                messagebox.showerror("Errores en el Código", error_msg)
+            # Permitir compilación incluso con errores menores/warnings
+            critical_errors = [e for e in errors if "crítico" in str(e).lower() or "fatal" in str(e).lower()]
+            if critical_errors:
+                error_msg = "❌ Errores críticos encontrados:\n\n" + "\n".join(critical_errors[:3])
+                messagebox.showerror("Errores Críticos", error_msg)
                 return
+            
+            # Si hay errores menores, mostrar warning pero continuar
+            if errors:
+                warning_msg = f"⚠️ Se encontraron {len(errors)} warnings, pero se continuará con la compilación.\n\n"
+                warning_msg += "Primeros warnings:\n" + "\n".join(str(e) for e in errors[:3])
+                if len(errors) > 3:
+                    warning_msg += f"\n... y {len(errors) - 3} más"
+                
+                result = messagebox.askyesno("Warnings Detectados", 
+                    warning_msg + "\n\n¿Desea continuar con la generación del ejecutable?")
+                if not result:
+                    return
             
             # Solicitar nombre del programa
             program_name = simpledialog.askstring(
@@ -365,7 +388,49 @@ class LexicalAnalyzerGUI:
             progress_window = self.show_compilation_progress(program_name)
             self.root.update()
             
-            success, message = self.analyzer.generate_and_compile(program_name)
+            try:
+                success, message = self.analyzer.generate_and_compile(program_name)
+            except Exception as compile_error:
+                progress_window.destroy()
+                
+                # Intentar generar solo el ASM como fallback
+                try:
+                    asm_code, asm_error = self.analyzer.generate_assembly_code(program_name)
+                    if asm_code and not asm_error:
+                        # Guardar el ASM manualmente
+                        asm_path = os.path.join(self.tasm_path, f"{program_name}.asm")
+                        with open(asm_path, 'w', encoding='ascii', errors='ignore') as f:
+                            f.write(asm_code)
+                        
+                        fallback_msg = (
+                            f"⚠️ La compilación automática falló, pero se generó el código ASM exitosamente.\n\n"
+                            f"📁 Archivo generado:\n"
+                            f"• {program_name}.asm en DOSBox2\\Tasm\\\n\n"
+                            f"🔧 Puedes compilar manualmente:\n"
+                            f"1. Abrir DOSBox\n"
+                            f"2. mount c DOSBox2\\Tasm\n"
+                            f"3. tasm {program_name}.asm\n"
+                            f"4. tlink {program_name}.obj\n\n"
+                            f"📄 ¿Deseas ver el código ASM generado?"
+                        )
+                        
+                        show_asm = messagebox.askyesno("ASM Generado", fallback_msg)
+                        if show_asm:
+                            self.show_assembly_code(asm_code, program_name)
+                        
+                        self.update_status(f"✅ {program_name}.asm generado - compilación manual requerida")
+                        return
+                except Exception as asm_error:
+                    pass
+                
+                messagebox.showerror("Error de Compilación", 
+                    f"❌ Error durante la compilación:\n\n{str(compile_error)}\n\n"
+                    f"Posibles causas:\n"
+                    f"• Archivos TASM faltantes\n"
+                    f"• Permisos insuficientes\n"
+                    f"• DOSBox bloqueado por antivirus")
+                self.update_status("❌ Error en la compilación")
+                return
             
             # Cerrar ventana de progreso
             progress_window.destroy()
@@ -390,25 +455,55 @@ class LexicalAnalyzerGUI:
                     f"📁 Archivos generados en DOSBox2\\Tasm\\:\n" + 
                     "\n".join(files_info) + 
                     f"\n\n🎯 El archivo {program_name}.exe está listo para usar en Proteus\n"
-                    f"📂 Ubicación: {self.tasm_path}"
+                    f"📂 Ubicación: {self.tasm_path}\n\n"
+                    f"¿Deseas ver el código ASM generado?"
                 )
                 
-                messagebox.showinfo("🎉 Compilación Exitosa", success_msg)
+                show_asm = messagebox.askyesno("🎉 Compilación Exitosa", success_msg)
                 
-                # Mostrar código ensamblador
-                asm_code, error = self.analyzer.generate_assembly_code(program_name)
-                if asm_code:
-                    self.show_assembly_code(asm_code, program_name)
+                # Mostrar código ensamblador si se solicita
+                if show_asm:
+                    asm_code, error = self.analyzer.generate_assembly_code(program_name)
+                    if asm_code:
+                        self.show_assembly_code(asm_code, program_name)
                 
                 self.update_status(f"✅ {program_name}.exe generado exitosamente en DOSBox2\\Tasm\\")
             else:
-                messagebox.showerror("❌ Error de Compilación", 
-                    f"Error durante la compilación:\n\n{message}\n\n"
-                    f"Verificaciones:\n"
-                    f"• DOSBox instalado correctamente\n"
-                    f"• TASM.EXE y TLINK.EXE en Tasm/\n"
-                    f"• Permisos de escritura en la carpeta")
-                self.update_status("❌ Error en la compilación")
+                # Si falla la compilación, intentar generar solo el ASM
+                try:
+                    asm_code, asm_error = self.analyzer.generate_assembly_code(program_name)
+                    if asm_code and not asm_error:
+                        # Guardar el ASM manualmente
+                        asm_path = os.path.join(self.tasm_path, f"{program_name}.asm")
+                        with open(asm_path, 'w', encoding='ascii', errors='ignore') as f:
+                            f.write(asm_code)
+                        
+                        fallback_msg = (
+                            f"⚠️ La compilación .EXE falló, pero se generó el código ASM.\n\n"
+                            f"📁 Archivo generado:\n"
+                            f"• {program_name}.asm en DOSBox2\\Tasm\\\n\n"
+                            f"🔧 Error de compilación: {message}\n\n"
+                            f"📄 ¿Deseas ver el código ASM generado?"
+                        )
+                        
+                        show_asm = messagebox.askyesno("ASM Generado", fallback_msg)
+                        if show_asm:
+                            self.show_assembly_code(asm_code, program_name)
+                        
+                        self.update_status(f"⚠️ {program_name}.asm generado - revisar compilación TASM")
+                    else:
+                        messagebox.showerror("❌ Error de Compilación", 
+                            f"Error durante la compilación:\n\n{message}\n\n"
+                            f"Verificaciones:\n"
+                            f"• DOSBox instalado correctamente\n"
+                            f"• TASM.EXE y TLINK.EXE en Tasm/\n"
+                            f"• Permisos de escritura en la carpeta")
+                        self.update_status("❌ Error en la compilación")
+                except Exception as fallback_error:
+                    messagebox.showerror("❌ Error de Compilación", 
+                        f"Error durante la compilación:\n\n{message}\n\n"
+                        f"No se pudo generar ni siquiera el ASM: {fallback_error}")
+                    self.update_status("❌ Error completo en la generación")
                 
         except Exception as e:
             messagebox.showerror("Error Inesperado", 
@@ -538,6 +633,29 @@ class LexicalAnalyzerGUI:
                  font=('Arial', 10), relief='raised').pack(side=tk.RIGHT, padx=5)
         tk.Button(button_frame, text="❌ Cerrar", command=asm_window.destroy,
                  font=('Arial', 10), relief='raised').pack(side=tk.RIGHT)
+    
+    def clear_all(self):
+        """Limpia todo el contenido del editor y resultados"""
+        self.code_editor.delete(1.0, tk.END)
+        self.clear_output()
+        self.current_file = None
+        self.update_title()
+        self.update_status("🪟 Todo limpiado - Listo para nuevo código")
+    
+    def clear_output(self):
+        """Limpia el área de resultados"""
+        self.output_text.config(state=tk.NORMAL)
+        self.output_text.delete(1.0, tk.END)
+        self.output_text.config(state=tk.DISABLED)
+    
+    def update_output(self, text, tag="info"):
+        """Actualiza el área de salida con texto formateado"""
+        self.output_text.config(state=tk.NORMAL)
+        self.output_text.delete(1.0, tk.END)
+        self.output_text.insert(tk.END, text, tag)
+        self.output_text.config(state=tk.DISABLED)
+        # Scroll al final
+        self.output_text.see(tk.END)
     
     def run(self):
         """Ejecuta la aplicación"""
