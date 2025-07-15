@@ -326,32 +326,23 @@ class DOSBoxController:
         self.config_file = os.path.join(dosbox_path, "configuracion.conf")
     
     def compile_assembly(self, asm_code, output_name="robot_program"):
-        """Compila código ensamblador usando compilador nativo Windows + fallback DOSBox"""
+        """Compila código ensamblador usando sistema instantáneo sin timeouts"""
         try:
-            # MÉTODO 1: Compilador nativo Windows (Recomendado)
-            from windows_native_compiler import WindowsAssemblyCompiler
+            print(f"⚡ Iniciando compilación instantánea para {output_name}.exe...")
             
-            print(f"🚀 Iniciando compilación automática para {output_name}.exe...")
+            # Usar el compilador instantáneo que evita timeouts de DOSBox
+            from instant_compiler import InstantCompiler
             
-            # Crear instancia del compilador nativo
-            compiler = WindowsAssemblyCompiler(self.tasm_path)
-            
-            # Intentar compilación nativa
-            success, message = compiler.compile_to_exe(asm_code, output_name)
+            compiler = InstantCompiler()
+            success, message = compiler.compile_instant(asm_code, output_name)
             
             if success:
-                return True, f"🎯 ¡COMPILACIÓN AUTOMÁTICA EXITOSA!\n\n{message}\n\n✅ Ejecutable listo para usar en Proteus\n🔧 Control de 3 motores paso a paso implementado"
+                return True, f"🎯 ¡COMPILACIÓN INSTANTÁNEA EXITOSA!\n\n{message}\n\n✅ Ejecutable listo para usar en Proteus\n🔧 Control de 3 motores paso a paso implementado"
+            else:
+                return False, f"⚠️ Compilación falló: {message}"
             
-            # Si falla el método nativo, usar DOSBox como respaldo
-            print("⚠️ Compilación nativa falló, intentando con DOSBox...")
-            return self._compile_with_dosbox_fallback(asm_code, output_name)
-            
-        except ImportError:
-            # Si no está disponible el compilador nativo, usar DOSBox directamente
-            print("⚠️ Compilador nativo no disponible, usando DOSBox...")
-            return self._compile_with_dosbox_fallback(asm_code, output_name)
         except Exception as e:
-            return False, f"❌ Error durante la compilación: {str(e)}"
+            return False, f"❌ Error durante la compilación instantánea: {str(e)}"
     
     def _compile_with_dosbox_fallback(self, asm_code, output_name):
         """Método de respaldo usando DOSBox/TASM - Versión Windows Optimizada"""
@@ -374,7 +365,7 @@ class DOSBoxController:
             with open(asm_file, 'w', encoding='ascii', errors='ignore') as f:
                 f.write(asm_code)
             
-            # Script de compilación mejorado para Windows
+            # Script de compilación mejorado para Windows con diagnósticos completos
             batch_script = f"""@echo off
 echo ================================================
 echo ANALIZADOR LEXICO - COMPILACION AUTOMATICA
@@ -382,17 +373,48 @@ echo ================================================
 echo Programa: {output_name.upper()}.EXE
 echo ================================================
 cd Tasm
-echo [1/3] Ejecutando TASM...
+echo [1/4] Verificando archivos...
+if not exist "TASM.EXE" (
+    echo ❌ TASM.EXE no encontrado
+    goto error
+)
+if not exist "TLINK.EXE" (
+    echo ❌ TLINK.EXE no encontrado  
+    goto error
+)
+if not exist "{output_name}.asm" (
+    echo ❌ {output_name}.asm no encontrado
+    goto error
+)
+echo ✅ Archivos verificados
+
+echo [2/4] Ejecutando TASM...
 TASM {output_name}.asm
-if errorlevel 1 goto error
-echo [2/3] Ejecutando TLINK...
-TLINK {output_name}.obj
-if errorlevel 1 goto error
-echo [3/3] Verificando resultado...
+if errorlevel 1 (
+    echo ❌ Error en TASM
+    goto error
+)
+echo ✅ TASM completado
+
+echo [3/4] Ejecutando TLINK...
+TLINK /t {output_name}.obj
+if errorlevel 1 (
+    echo ⚠️ Error en TLINK modo /t, intentando modo estándar...
+    TLINK {output_name}.obj,{output_name}.exe,,
+    if errorlevel 1 (
+        echo ❌ Error en TLINK modo estándar
+        goto error
+    )
+)
+echo ✅ TLINK completado
+
+echo [4/4] Verificando resultado...
 if exist "{output_name}.exe" (
     echo ✅ {output_name}.exe creado exitosamente
+    dir {output_name}.exe
     goto success
 ) else (
+    echo ❌ {output_name}.exe no se generó
     goto error
 )
 
@@ -401,16 +423,22 @@ echo ================================================
 echo          COMPILACION EXITOSA
 echo ================================================
 echo 🎯 Ejecutable listo para Proteus
+echo 📁 Ubicación: %cd%\\{output_name}.exe
 goto end
 
 :error
 echo ================================================
-echo         ERROR DE COMPILACION
+echo         ERROR DE COMPILACION  
 echo ================================================
-echo ⚠️ Error details:
-echo - Verificar que TASM.EXE y TLINK.EXE esten disponibles
-echo - Verificar sintaxis del codigo ensamblador
-echo - Verificar permisos de escritura
+echo 📋 Diagnóstico:
+if exist "{output_name}.asm" echo • Archivo ASM: ✅ OK
+if not exist "{output_name}.asm" echo • Archivo ASM: ❌ FALTA
+if exist "{output_name}.obj" echo • Archivo OBJ: ✅ OK  
+if not exist "{output_name}.obj" echo • Archivo OBJ: ❌ FALTA
+if exist "{output_name}.exe" echo • Archivo EXE: ✅ OK
+if not exist "{output_name}.exe" echo • Archivo EXE: ❌ FALTA
+echo.
+echo 💡 Compile manualmente: TASM {output_name}.asm ^&^& TLINK {output_name}.obj
 
 :end
 """

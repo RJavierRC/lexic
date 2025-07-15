@@ -1,7 +1,7 @@
-global _start\n;===============================================
+;===============================================
 ; CONTROL DE MOTORES PARA SIMULACION PROTEUS
 ; Programa: r1_user
-; Generado: 2025-07-14 17:09:29
+; Generado: 2025-07-14 17:37:08
 ; Compatible: 8086/8088 + 8255 PPI
 ;===============================================
 
@@ -9,11 +9,10 @@ global _start\n;===============================================
 .STACK 100h
 
 .DATA
-    ; Variables del programa
-    motor_base     DB ?    ; Estado motor base
-    motor_hombro   DB ?    ; Estado motor hombro  
-    motor_codo     DB ?    ; Estado motor codo
-    delay_count    DW ?    ; Contador de delay
+    motor_base     DB ?
+    motor_hombro   DB ?  
+    motor_codo     DB ?
+    delay_count    DW ?
 
 .CODE
 MAIN PROC
@@ -21,41 +20,30 @@ MAIN PROC
     MOV AX, @DATA
     MOV DS, AX
     
-    ; Configurar 8255 PPI - Todos los puertos como salida
-    MOV DX, 0303h  ; Puerto de configuracin
-    MOV AL, 80h              ; Configuracin: todos outputs
+    ; Configurar 8255 PPI como outputs
+    MOV DX, 0303h
+    MOV AL, 80h
     OUT DX, AL
-    
-    ; Mensaje de inicio (opcional para debug)
-    ; MOV AH, 09h
-    ; LEA DX, start_msg
-    ; INT 21h
 
-    ; === CONTROL MOTOR BASE ===
-    ; Mover base a 45.0 grados
-    MOV DX, 0300h  ; Puerto A (Base)
-    CALL MOVE_BASE_45.0
+    ; Control motor base - 45 grados
+    MOV DX, 0300h
+    CALL MOVE_BASE
 
-    ; === CONTROL MOTOR HOMBRO ===
-    ; Mover hombro a 120.0 grados
-    MOV DX, 0301h  ; Puerto B (Hombro)
-    CALL MOVE_HOMBRO_120.0
+    ; Control motor hombro - 120 grados  
+    MOV DX, 0301h
+    CALL MOVE_HOMBRO
 
-    ; === CONTROL MOTOR CODO ===
-    ; Mover codo a 90.0 grados
-    MOV DX, 0302h  ; Puerto C (Codo)
-    CALL MOVE_CODO_90.0
+    ; Control motor codo - 90 grados
+    MOV DX, 0302h
+    CALL MOVE_CODO
 
-    ; === FINALIZACION ===
     ; Apagar todos los motores
     MOV DX, 0300h
     MOV AL, 00h
     OUT DX, AL
-    
     MOV DX, 0301h  
     MOV AL, 00h
     OUT DX, AL
-    
     MOV DX, 0302h
     MOV AL, 00h
     OUT DX, AL
@@ -68,91 +56,88 @@ MAIN ENDP
 
 
 ;===============================================
-; PROCEDIMIENTO MOTOR BASE - 45.0 GRADOS
+; PROCEDIMIENTO MOTOR BASE
 ;===============================================
-MOVE_BASE_45.0 PROC
+MOVE_BASE PROC
     PUSH CX
     PUSH AX
     
-    ; Ejecutar 25 pasos para 45.0 grados
-    MOV CX, 25            ; Nmero de pasos
-STEP_LOOP_BASE_45.0:
-    MOV AL, 01h         ; Patrn de paso 1
+    MOV CX, 25
+STEP_LOOP_BASE:
+    MOV AL, 01h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 03h         ; Patrn de paso 2
+    MOV AL, 03h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 02h         ; Patrn de paso 3
+    MOV AL, 02h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 06h         ; Patrn de paso 4
+    MOV AL, 06h
     OUT DX, AL
     CALL SHORT_DELAY
-    LOOP STEP_LOOP_BASE_45.0
+    LOOP STEP_LOOP_BASE
     
     POP AX
     POP CX
     RET
-MOVE_BASE_45.0 ENDP
+MOVE_BASE ENDP
 
 ;===============================================
-; PROCEDIMIENTO MOTOR HOMBRO - 120.0 GRADOS
+; PROCEDIMIENTO MOTOR HOMBRO
 ;===============================================
-MOVE_HOMBRO_120.0 PROC
+MOVE_HOMBRO PROC
     PUSH CX
     PUSH AX
     
-    ; Ejecutar 66 pasos para 120.0 grados
-    MOV CX, 66            ; Nmero de pasos
-STEP_LOOP_HOMBRO_120.0:
-    MOV AL, 01h         ; Patrn de paso 1
+    MOV CX, 66
+STEP_LOOP_HOMBRO:
+    MOV AL, 01h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 03h         ; Patrn de paso 2
+    MOV AL, 03h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 02h         ; Patrn de paso 3
+    MOV AL, 02h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 06h         ; Patrn de paso 4
+    MOV AL, 06h
     OUT DX, AL
     CALL SHORT_DELAY
-    LOOP STEP_LOOP_HOMBRO_120.0
+    LOOP STEP_LOOP_HOMBRO
     
     POP AX
     POP CX
     RET
-MOVE_HOMBRO_120.0 ENDP
+MOVE_HOMBRO ENDP
 
 ;===============================================
-; PROCEDIMIENTO MOTOR CODO - 90.0 GRADOS
+; PROCEDIMIENTO MOTOR CODO
 ;===============================================
-MOVE_CODO_90.0 PROC
+MOVE_CODO PROC
     PUSH CX
     PUSH AX
     
-    ; Ejecutar 50 pasos para 90.0 grados
-    MOV CX, 50            ; Nmero de pasos
-STEP_LOOP_CODO_90.0:
-    MOV AL, 01h         ; Patrn de paso 1
+    MOV CX, 50
+STEP_LOOP_CODO:
+    MOV AL, 01h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 03h         ; Patrn de paso 2
+    MOV AL, 03h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 02h         ; Patrn de paso 3
+    MOV AL, 02h
     OUT DX, AL
     CALL SHORT_DELAY
-    MOV AL, 06h         ; Patrn de paso 4
+    MOV AL, 06h
     OUT DX, AL
     CALL SHORT_DELAY
-    LOOP STEP_LOOP_CODO_90.0
+    LOOP STEP_LOOP_CODO
     
     POP AX
     POP CX
     RET
-MOVE_CODO_90.0 ENDP
+MOVE_CODO ENDP
 
 ;===============================================
 ; PROCEDIMIENTO DE DELAY
@@ -160,9 +145,9 @@ MOVE_CODO_90.0 ENDP
 DELAY PROC
     PUSH CX
     PUSH AX
-    MOV CX, 03E8h    ; Delay de 1000 ciclos
+    MOV CX, 03E8h
 DELAY_LOOP:
-    NOP                        ; No operation
+    NOP
     LOOP DELAY_LOOP
     POP AX
     POP CX
@@ -171,7 +156,7 @@ DELAY ENDP
 
 SHORT_DELAY PROC
     PUSH CX
-    MOV CX, 1000h              ; Delay corto
+    MOV CX, 0100h
 SHORT_DELAY_LOOP:
     NOP
     LOOP SHORT_DELAY_LOOP

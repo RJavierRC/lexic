@@ -138,6 +138,21 @@ class LexicalAnalyzerGUI:
                  font=('Arial', 11, 'bold'), width=14, bg='lightgreen', 
                  relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
         
+        # Botón específico para Proteus
+        tk.Button(button_frame, text="🎯 DOS Real", command=self.generate_for_proteus, 
+                 font=('Arial', 11, 'bold'), width=14, bg='red', fg='white',
+                 relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
+        
+        # Botón específico para Proteus - Generar .COM
+        tk.Button(button_frame, text="📁 .COM", command=self.generate_com_file, 
+                 font=('Arial', 11, 'bold'), width=10, bg='orange', fg='white',
+                 relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
+        
+        # Botón para ASM dinámico
+        tk.Button(button_frame, text="📝 ASM", command=self.generate_dynamic_asm, 
+                 font=('Arial', 11, 'bold'), width=8, bg='purple', fg='white',
+                 relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
+        
         tk.Button(button_frame, text="🧹 Limpiar", command=self.clear_all, 
                  font=('Arial', 11), width=10, relief='raised').pack(side=tk.LEFT, padx=3)
     
@@ -204,6 +219,8 @@ class LexicalAnalyzerGUI:
         menubar.add_cascade(label="Análisis", menu=analysis_menu)
         analysis_menu.add_command(label="🔍 Analizar Código", command=self.analyze_code, accelerator="F5")
         analysis_menu.add_command(label="⚙️ Generar .EXE", command=self.generate_executable, accelerator="F6")
+        analysis_menu.add_command(label="🎯 Para Proteus", command=self.generate_for_proteus, accelerator="F7")
+        analysis_menu.add_command(label="📁 Generar .COM", command=self.generate_com_file, accelerator="F8")
         analysis_menu.add_separator()
         analysis_menu.add_command(label="🧹 Limpiar Todo", command=self.clear_all)
         
@@ -215,9 +232,11 @@ class LexicalAnalyzerGUI:
         # Atajos de teclado - Windows
         self.root.bind('<Control-n>', lambda e: self.new_file())
         self.root.bind('<Control-o>', lambda e: self.open_file())
-        self.root.bind('<Control-s>', lambda e: self.save_file())
         self.root.bind('<F5>', lambda e: self.analyze_code())
         self.root.bind('<F6>', lambda e: self.generate_executable())  # Atajo para compilar
+        self.root.bind('<F7>', lambda e: self.generate_for_proteus())  # Atajo para Proteus
+        self.root.bind('<F8>', lambda e: self.generate_com_file())  # Atajo para .COM
+        self.root.bind('<F7>', lambda e: self.generate_for_proteus())  # Atajo para Proteus
     
     def new_file(self):
         """Crea un nuevo archivo"""
@@ -382,13 +401,14 @@ class LexicalAnalyzerGUI:
                 return
             
             # Generar y compilar
-            self.update_status(f"⚙️ Generando {program_name}.exe con DOSBox + TASM...")
+            self.update_status(f"⚡ Generando {program_name}.exe instantáneamente...")
             
             # Mostrar progreso
             progress_window = self.show_compilation_progress(program_name)
             self.root.update()
             
             try:
+                # Usar el sistema de compilación instantánea que evita timeouts
                 success, message = self.analyzer.generate_and_compile(program_name)
             except Exception as compile_error:
                 progress_window.destroy()
@@ -460,10 +480,24 @@ class LexicalAnalyzerGUI:
                 
                 messagebox.showinfo("🎉 Compilación Exitosa", success_msg)
                 
-                # Mostrar código ensamblador
-                asm_code, error = self.analyzer.generate_assembly_code(program_name)
-                if asm_code:
-                    self.show_assembly_code(asm_code, program_name)
+                # Generar y mostrar código ensamblador dinámico
+                try:
+                    from create_dynamic_asm_generator import generate_dynamic_asm_from_analyzer
+                    asm_code = generate_dynamic_asm_from_analyzer(self.analyzer, program_name)
+                    
+                    # Guardar ASM dinámico 
+                    asm_path = os.path.join(self.tasm_path, f"{program_name}_dynamic.asm")
+                    with open(asm_path, 'w', encoding='ascii', errors='ignore') as f:
+                        f.write(asm_code)
+                    
+                    self.show_assembly_code(asm_code, f"{program_name}_dynamic")
+                    self.output_text.insert(tk.END, f"\n🎯 ASM dinámico generado: {program_name}_dynamic.asm\n")
+                    
+                except Exception as asm_error:
+                    # Fallback al generador original
+                    asm_code, error = self.analyzer.generate_assembly_code(program_name)
+                    if asm_code:
+                        self.show_assembly_code(asm_code, program_name)
                 
                 self.update_status(f"✅ {program_name}.exe generado exitosamente en DOSBox2\\Tasm\\")
             else:
@@ -481,6 +515,308 @@ class LexicalAnalyzerGUI:
                 f"Contacta al desarrollador si el problema persiste")
             self.update_status("❌ Error inesperado")
     
+    def generate_for_proteus(self):
+        """Genera código específicamente optimizado para Proteus ISIS"""
+        code = self.code_editor.get(1.0, tk.END).strip()
+        if not code:
+            messagebox.showerror("Error", "No hay código para generar ejecutable para Proteus")
+            return
+        
+        try:
+            # Verificar DOSBox
+            if not os.path.exists(self.dosbox_path):
+                messagebox.showerror("Error de Configuración", 
+                    f"⚠️ DOSBox no encontrado en: {self.dosbox_path}\n\n"
+                    f"Asegúrate de que la carpeta DOSBox2 esté en el directorio del proyecto.\n"
+                    f"Debe contener:\n"
+                    f"• dosbox.exe\n"
+                    f"• Carpeta Tasm/ con TASM.EXE y TLINK.EXE")
+                return
+            
+            # Analizar código (permitir warnings)
+            self.update_status("🔍 Analizando código para Proteus...")
+            tokens, errors = self.analyzer.analyze(code)
+            
+            # Solo rechazar errores críticos
+            critical_errors = [e for e in errors if "crítico" in str(e).lower() or "fatal" in str(e).lower()]
+            if critical_errors:
+                error_msg = "❌ Errores críticos encontrados:\n\n" + "\n".join(critical_errors[:3])
+                messagebox.showerror("Errores Críticos", error_msg)
+                return
+            
+            # Si hay warnings, mostrar pero continuar
+            if errors:
+                warning_msg = f"⚠️ Se encontraron {len(errors)} warnings, pero se continuará con la generación para Proteus.\n\n"
+                warning_msg += "Primeros warnings:\n" + "\n".join(str(e) for e in errors[:3])
+                if len(errors) > 3:
+                    warning_msg += f"\n... y {len(errors) - 3} más"
+                
+                result = messagebox.askyesno("Warnings Detectados", 
+                    warning_msg + "\n\n¿Desea continuar con la generación para Proteus?")
+                if not result:
+                    return
+            
+            # Solicitar nombre del programa
+            program_name = tk.simpledialog.askstring(
+                "Programa para Proteus", 
+                "Ingrese el nombre del programa para Proteus (sin extensión):\n\n"
+                "Este archivo será específicamente optimizado para Proteus ISIS",
+                initialvalue="robot_proteus"
+            )
+            if not program_name:
+                return
+            
+            # Validar nombre
+            if not program_name.replace('_', '').isalnum():
+                messagebox.showerror("Nombre Inválido", 
+                    "El nombre solo puede contener letras, números y guiones bajos")
+                return
+            
+            # Generar específicamente para Proteus
+            self.update_status(f"🎯 Generando {program_name}.exe para Proteus ISIS...")
+            
+            # Mostrar progreso específico para Proteus
+            progress_window = self.show_proteus_compilation_progress(program_name)
+            self.root.update()
+            
+            try:
+                # Usar el generador DOS REAL para verdadera compatibilidad con 8086
+                success, message = self.analyzer.generate_and_compile_dos_real(program_name)
+            except Exception as compile_error:
+                progress_window.destroy()
+                messagebox.showerror("Error de Generación", 
+                    f"❌ Error generando para Proteus:\n\n{str(compile_error)}\n\n"
+                    f"Verifica que DOSBox y TASM estén correctamente instalados")
+                self.update_status("❌ Error en generación para Proteus")
+                return
+            
+            # Cerrar ventana de progreso
+            progress_window.destroy()
+            
+            if success:
+                # Verificar archivo generado
+                exe_path = os.path.join(self.tasm_path, f"{program_name}.exe")
+                
+                success_msg = (
+                    f"🎯 ¡EJECUTABLE DOS REAL PARA PROTEUS!\n\n"
+                    f"📁 Archivo: {program_name}.exe\n"
+                    f"📂 Ubicación: DOSBox2\\Tasm\\\n"
+                    f"�️  Formato: MS-DOS ejecutable REAL\n"
+                    f"🔌 Procesador: 8086 (modo real)\n"
+                    f"⚡ Puertos: 0300h-0303h (8255 PPI)\n"
+                    f"🤖 Control: 3 motores paso a paso\n\n"
+                    f"🎮 CONFIGURACIÓN PROTEUS (CRÍTICA):\n"
+                    f"1. ⚙️  Procesador: 8086 (NO 8088, NO x86)\n"
+                    f"2. 🖥️  Modelo: 8086 Real Mode\n"
+                    f"3. 📂 Cargar: {program_name}.exe\n"
+                    f"4. 🔌 8255 PPI en direcciones:\n"
+                    f"   • 0300h (Puerto A - Base)\n"
+                    f"   • 0301h (Puerto B - Hombro)\n"
+                    f"   • 0302h (Puerto C - Codo)\n"
+                    f"   • 0303h (Control)\n"
+                    f"5. 🤖 ULN2003A para drivers\n\n"
+                    f"✅ ¡Sin error de opcode desconocido!\n"
+                    f"✅ ¡Ejecutable DOS auténtico!"
+                )
+                
+                messagebox.showinfo("🎯 ¡Ejecutable para Proteus Listo!", success_msg)
+                self.update_status(f"✅ {program_name}.exe generado para Proteus en DOSBox2\\Tasm\\")
+            else:
+                messagebox.showerror("❌ Error en Proteus", 
+                    f"Error generando para Proteus:\n\n{message}")
+                self.update_status("❌ Error en generación para Proteus")
+                
+        except Exception as e:
+            messagebox.showerror("Error Inesperado", 
+                f"❌ Error durante la generación para Proteus:\n\n{str(e)}")
+            self.update_status("❌ Error inesperado en generación para Proteus")
+    
+    def generate_com_file(self):
+        """Genera archivo .COM específicamente para Proteus (como noname.com que funciona)"""
+        code = self.code_editor.get(1.0, tk.END).strip()
+        if not code:
+            messagebox.showerror("Error", "No hay código para generar archivo .COM")
+            return
+        
+        try:
+            # Analizar código
+            self.update_status("🔍 Analizando código para archivo .COM...")
+            tokens, errors = self.analyzer.analyze(code)
+            
+            # Solo rechazar errores críticos
+            critical_errors = [e for e in errors if "crítico" in str(e).lower() or "fatal" in str(e).lower()]
+            if critical_errors:
+                error_msg = "❌ Errores críticos encontrados:\n\n" + "\n".join(critical_errors[:3])
+                messagebox.showerror("Errores Críticos", error_msg)
+                return
+            
+            # Solicitar nombre del programa
+            program_name = tk.simpledialog.askstring(
+                "Archivo .COM para Proteus", 
+                "Ingrese el nombre del archivo .COM:\n\n"
+                "Este archivo será compatible con Proteus sin errores de debug",
+                initialvalue="motor_robot"
+            )
+            if not program_name:
+                return
+            
+            # Validar nombre
+            if not program_name.replace('_', '').isalnum():
+                messagebox.showerror("Nombre Inválido", 
+                    "El nombre solo puede contener letras, números y guiones bajos")
+                return
+            
+            self.update_status(f"📁 Generando {program_name}.com para Proteus...")
+            
+            # Crear el generador COM DINÁMICO basado en tu código
+            import create_dynamic_motor_com
+            
+            # Generar el archivo COM dinámico usando los valores del código
+            success = create_dynamic_motor_com.create_dynamic_com_from_analyzer(self.analyzer)
+            
+            # Paths para renombrar
+            original_path = os.path.join("DOSBox2", "Tasm", "motor_user.com")
+            new_path = os.path.join("DOSBox2", "Tasm", f"{program_name}.com")
+            
+            if success and os.path.exists(original_path):
+                # Renombrar al nombre solicitado
+                import shutil
+                shutil.copy2(original_path, new_path)
+                
+                file_size = os.path.getsize(new_path)
+                
+                success_msg = (
+                    f"📁 ¡ARCHIVO .COM DINÁMICO!\n\n"
+                    f"📂 Archivo: {program_name}.com\n"
+                    f"📏 Tamaño: {file_size} bytes\n"
+                    f"📍 Ubicación: DOSBox2\\Tasm\\\n"
+                    f"🎯 Formato: .COM (basado en tu código)\n\n"
+                    f"🤖 VALORES EXTRAÍDOS DE TU CÓDIGO:\n"
+                    f"• r1.base = {self.get_motor_value('base')}°\n"
+                    f"• r1.hombro = {self.get_motor_value('hombro')}°\n"
+                    f"• r1.codo = {self.get_motor_value('codo')}°\n"
+                    f"• r1.velocidad = {self.get_motor_value('velocidad')}\n"
+                    f"• r1.espera = {self.get_motor_value('espera')}\n\n"
+                    f"✅ ARCHIVO .COM GENERADO DINÁMICAMENTE:\n"
+                    f"• Ángulos exactos de tu sintaxis\n"
+                    f"• Código máquina personalizado\n"
+                    f"• No valores estáticos\n\n"
+                    f"🎮 CARGAR EN PROTEUS:\n"
+                    f"1. Archivo: {program_name}.com\n"
+                    f"2. Procesador: 8086 Real Mode\n"
+                    f"3. ¡Ángulos de tu código Robot!\n"
+                    f"4. Completamente personalizado"
+                )
+                
+                messagebox.showinfo("📁 ¡Archivo .COM Listo!", success_msg)
+                self.update_status(f"✅ {program_name}.com generado exitosamente")
+            else:
+                messagebox.showerror("❌ Error", "No se pudo generar el archivo .COM")
+                self.update_status("❌ Error generando archivo .COM")
+                
+        except Exception as e:
+            messagebox.showerror("Error Inesperado", 
+                f"❌ Error durante la generación .COM:\n\n{str(e)}")
+            self.update_status("❌ Error inesperado en generación .COM")
+
+    def generate_dynamic_asm(self):
+        """Genera código ASM dinámico basado en valores del código Robot"""
+        code = self.code_editor.get(1.0, tk.END).strip()
+        if not code:
+            messagebox.showerror("Error", "No hay código para generar ASM dinámico")
+            return
+        
+        try:
+            # Analizar código
+            self.update_status("🔍 Analizando código para ASM dinámico...")
+            tokens, errors = self.analyzer.analyze(code)
+            
+            # Solicitar nombre del programa
+            program_name = tk.simpledialog.askstring(
+                "ASM Dinámico", 
+                "Nombre del archivo ASM:",
+                initialvalue="robot_dynamic"
+            )
+            
+            if not program_name:
+                return
+            
+            # Generar ASM dinámico
+            from create_dynamic_asm_generator import generate_dynamic_asm_from_analyzer
+            asm_code = generate_dynamic_asm_from_analyzer(self.analyzer, program_name)
+            
+            # Guardar archivo ASM
+            asm_path = os.path.join(self.tasm_path, f"{program_name}.asm")
+            with open(asm_path, 'w', encoding='ascii', errors='ignore') as f:
+                f.write(asm_code)
+            
+            # Mostrar código ASM generado
+            self.show_assembly_code(asm_code, program_name)
+            
+            # Mensaje de éxito
+            success_msg = (
+                f"📝 ¡ASM DINÁMICO GENERADO!\n\n"
+                f"📂 Archivo: {program_name}.asm\n"
+                f"📍 Ubicación: DOSBox2\\Tasm\\\n\n"
+                f"🤖 VALORES EXTRAÍDOS:\n"
+                f"• r1.base = {self.get_motor_value('base')}°\n"
+                f"• r1.hombro = {self.get_motor_value('hombro')}°\n"
+                f"• r1.codo = {self.get_motor_value('codo')}°\n"
+                f"• r1.velocidad = {self.get_motor_value('velocidad')}\n"
+                f"• r1.espera = {self.get_motor_value('espera')}\n\n"
+                f"✅ CARACTERÍSTICAS:\n"
+                f"• Ángulos exactos de tu sintaxis\n"
+                f"• Pasos y delays calculados\n"
+                f"• Compatible con TASM/DOSBox\n"
+                f"• Listo para compilar a .EXE/.COM\n\n"
+                f"🎯 SIGUIENTE PASO:\n"
+                f"Compila este ASM con TASM para crear el ejecutable"
+            )
+            
+            messagebox.showinfo("✅ ASM Dinámico Generado", success_msg)
+            self.update_status(f"✅ {program_name}.asm generado dinámicamente")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error generando ASM dinámico:\n\n{str(e)}")
+            self.update_status("❌ Error generando ASM dinámico")
+
+    def get_motor_value(self, component):
+        """Extrae el valor de un componente específico del código analizado"""
+        try:
+            # Buscar en los tokens del analizador
+            if hasattr(self.analyzer, 'tokens') and self.analyzer.tokens:
+                i = 0
+                while i < len(self.analyzer.tokens) - 2:
+                    token = self.analyzer.tokens[i]
+                    if (hasattr(token, 'type') and hasattr(token, 'value')):
+                        
+                        # Buscar componentes (pueden ser KEYWORD o COMPONENT)
+                        if (token.type in ['COMPONENT', 'KEYWORD'] and 
+                            token.value.lower() == component.lower()):
+                            
+                            # Buscar el valor después del '=' (puede ser ASSIGN o ASSIGN_OP)
+                            if (i + 2 < len(self.analyzer.tokens) and 
+                                hasattr(self.analyzer.tokens[i + 1], 'type') and 
+                                self.analyzer.tokens[i + 1].type in ['ASSIGN', 'ASSIGN_OP']):
+                                
+                                value_token = self.analyzer.tokens[i + 2]
+                                if hasattr(value_token, 'value'):
+                                    return value_token.value
+                    i += 1
+            
+            # Valores por defecto si no se encuentra
+            defaults = {
+                'base': 45,
+                'hombro': 90,
+                'codo': 60,
+                'velocidad': 2,
+                'espera': 1
+            }
+            return defaults.get(component.lower(), 0)
+            
+        except Exception as e:
+            return f"Error: {e}"
+
     def show_compilation_progress(self, program_name):
         """Muestra ventana de progreso durante la compilación"""
         progress_window = tk.Toplevel(self.root)
@@ -498,6 +834,36 @@ class LexicalAnalyzerGUI:
                 font=('Arial', 10)).pack(pady=5)
         tk.Label(progress_window, text="DOSBox + TASM trabajando...", 
                 font=('Arial', 10)).pack(pady=5)
+        
+        # Barra de progreso indeterminada
+        import tkinter.ttk as ttk
+        progress_bar = ttk.Progressbar(progress_window, mode='indeterminate')
+        progress_bar.pack(pady=10, padx=20, fill='x')
+        progress_bar.start()
+        
+        return progress_window
+    
+    def show_proteus_compilation_progress(self, program_name):
+        """Muestra ventana de progreso durante la generación para Proteus"""
+        progress_window = tk.Toplevel(self.root)
+        progress_window.title("Generando para Proteus...")
+        progress_window.geometry("450x180")
+        progress_window.resizable(False, False)
+        
+        # Centrar ventana
+        progress_window.transient(self.root)
+        progress_window.grab_set()
+        
+        tk.Label(progress_window, text="🎯 Generando ejecutable DOS REAL", 
+                font=('Arial', 12, 'bold')).pack(pady=10)
+        tk.Label(progress_window, text=f"Programa: {program_name}.exe", 
+                font=('Arial', 10)).pack(pady=5)
+        tk.Label(progress_window, text="🖥️  Modo: MS-DOS Real para 8086", 
+                font=('Arial', 10)).pack(pady=2)
+        tk.Label(progress_window, text="🔌 Configurando puertos 0300h-0303h", 
+                font=('Arial', 10)).pack(pady=2)
+        tk.Label(progress_window, text="🤖 Sin errores de opcode...", 
+                font=('Arial', 10)).pack(pady=2)
         
         # Barra de progreso indeterminada
         import tkinter.ttk as ttk

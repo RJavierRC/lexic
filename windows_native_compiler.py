@@ -131,7 +131,8 @@ class WindowsAssemblyCompiler:
         nasm_code = nasm_code.replace("CODE_SEG    ENDS", "")
         nasm_code = nasm_code.replace("   ASSUME CS: CODE_SEG, DS:DATA_SEG", "")
         nasm_code = nasm_code.replace("   END  START", "")
-        nasm_code = "global _start\\n" + nasm_code
+        # ELIMINADO: global _start para compatibilidad con Proteus/TASM
+        # nasm_code = "global _start\\n" + nasm_code
         return nasm_code
     
     def _convert_asm_to_c_simulation(self, asm_code, program_name):

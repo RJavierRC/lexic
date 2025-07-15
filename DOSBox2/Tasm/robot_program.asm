@@ -1,101 +1,167 @@
-;-----------------------------------------------
-; CONTROL DE TRES MOTORES PASO A PASO
+;===============================================
+; CONTROL DE MOTORES PARA SIMULACION PROTEUS
 ; Programa: robot_program
-; Fecha: 2025-07-14 14:54:47
-; Generado automaticamente para control de 3 motores
-;-----------------------------------------------
+; Generado: 2025-07-14 20:13:23
+; Compatible: 8086/8088 + 8255 PPI
+;===============================================
 
-; Definiciones de puertos 8255 (fuera de segmentos)
-PORTA   EQU 00H    ; Puerto A - Motor BASE
-PORTB   EQU 02H    ; Puerto B - Motor HOMBRO 
-PORTC   EQU 04H    ; Puerto C - Motor CODO
-Config  EQU 06H    ; Registro de configuracion
+.MODEL SMALL
+.STACK 100h
 
-DATA_SEG    SEGMENT
-; Variables del programa (si las hubiera)
-DATA_SEG    ENDS
+.DATA
+    motor_base     DB ?
+    motor_hombro   DB ?  
+    motor_codo     DB ?
+    delay_count    DW ?
 
-CODE_SEG    SEGMENT
-   ASSUME CS: CODE_SEG, DS:DATA_SEG
+.CODE
+MAIN PROC
+    ; Inicializar segmento de datos
+    MOV AX, @DATA
+    MOV DS, AX
+    
+    ; Configurar 8255 PPI como outputs
+    MOV DX, 0303h
+    MOV AL, 80h
+    OUT DX, AL
 
-    START:
-        MOV   AX, DATA_SEG
-        MOV   DS, AX
+    ; Control motor base - 45 grados
+    MOV DX, 0300h
+    CALL MOVE_BASE
 
-        ; Configurar 8255 - todos los puertos como salida
-        MOV   DX, Config
-        MOV   AL, 10000000B
-        OUT   DX, AL
+    ; Control motor hombro - 120 grados  
+    MOV DX, 0301h
+    CALL MOVE_HOMBRO
 
-        ; MOTOR A (BASE) - Secuencia de pasos
-        MOV   DX, PORTA
-        MOV   AL, 00000110B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy1: LOOP  loopy1
+    ; Control motor codo - 90 grados
+    MOV DX, 0302h
+    CALL MOVE_CODO
 
-        MOV   AL, 00001100B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy2: LOOP  loopy2
+    ; Apagar todos los motores
+    MOV DX, 0300h
+    MOV AL, 00h
+    OUT DX, AL
+    MOV DX, 0301h  
+    MOV AL, 00h
+    OUT DX, AL
+    MOV DX, 0302h
+    MOV AL, 00h
+    OUT DX, AL
+    
+    ; Salir del programa
+    MOV AH, 4Ch
+    MOV AL, 0
+    INT 21h
+MAIN ENDP
 
-        MOV   AL, 00001001B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy3: LOOP  loopy3
 
-        MOV   AL, 00000011B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy4: LOOP  loopy4
+;===============================================
+; PROCEDIMIENTO MOTOR BASE
+;===============================================
+MOVE_BASE PROC
+    PUSH CX
+    PUSH AX
+    
+    MOV CX, 25
+STEP_LOOP_BASE:
+    MOV AL, 01h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 03h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 02h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 06h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    LOOP STEP_LOOP_BASE
+    
+    POP AX
+    POP CX
+    RET
+MOVE_BASE ENDP
 
-        ; MOTOR B (HOMBRO) - Secuencia de pasos
-        MOV   DX, PORTB
-        MOV   AL, 00000110B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy5: LOOP  loopy5
+;===============================================
+; PROCEDIMIENTO MOTOR HOMBRO
+;===============================================
+MOVE_HOMBRO PROC
+    PUSH CX
+    PUSH AX
+    
+    MOV CX, 66
+STEP_LOOP_HOMBRO:
+    MOV AL, 01h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 03h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 02h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 06h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    LOOP STEP_LOOP_HOMBRO
+    
+    POP AX
+    POP CX
+    RET
+MOVE_HOMBRO ENDP
 
-        MOV   AL, 00001100B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy6: LOOP  loopy6
+;===============================================
+; PROCEDIMIENTO MOTOR CODO
+;===============================================
+MOVE_CODO PROC
+    PUSH CX
+    PUSH AX
+    
+    MOV CX, 50
+STEP_LOOP_CODO:
+    MOV AL, 01h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 03h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 02h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    MOV AL, 06h
+    OUT DX, AL
+    CALL SHORT_DELAY
+    LOOP STEP_LOOP_CODO
+    
+    POP AX
+    POP CX
+    RET
+MOVE_CODO ENDP
 
-        MOV   AL, 00001001B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy7: LOOP  loopy7
+;===============================================
+; PROCEDIMIENTO DE DELAY
+;===============================================
+DELAY PROC
+    PUSH CX
+    PUSH AX
+    MOV CX, 03E8h
+DELAY_LOOP:
+    NOP
+    LOOP DELAY_LOOP
+    POP AX
+    POP CX
+    RET
+DELAY ENDP
 
-        MOV   AL, 00000011B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy8: LOOP  loopy8
+SHORT_DELAY PROC
+    PUSH CX
+    MOV CX, 0100h
+SHORT_DELAY_LOOP:
+    NOP
+    LOOP SHORT_DELAY_LOOP
+    POP CX
+    RET
+SHORT_DELAY ENDP
 
-        ; MOTOR C (CODO) - Secuencia de pasos
-        MOV   DX, PORTC
-        MOV   AL, 00000110B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy9: LOOP  loopy9
-
-        MOV   AL, 00001100B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy10: LOOP  loopy10
-
-        MOV   AL, 00001001B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy11: LOOP  loopy11
-
-        MOV   AL, 00000011B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy12: LOOP  loopy12
-
-        ; Terminar programa
-        MOV    AH,4CH
-        MOV    AL,0
-        INT    21H
-CODE_SEG    ENDS
-   END  START
+END MAIN

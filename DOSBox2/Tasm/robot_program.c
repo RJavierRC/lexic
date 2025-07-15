@@ -1,7 +1,7 @@
 /*
  * Simulador de control de motores para Proteus
  * Programa: robot_program  
- * Generado: 2025-07-14 17:11:20
+ * Generado: 2025-07-14 17:38:15
  * Simula comportamiento de assembly para control de 3 motores paso a paso
  */
 

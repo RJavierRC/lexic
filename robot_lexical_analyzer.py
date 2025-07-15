@@ -780,10 +780,10 @@ class RobotLexicalAnalyzer:
     def generate_assembly_code(self, program_name="robot_program"):
         """Genera código ensamblador optimizado para Proteus"""
         try:
-            # Usar el nuevo generador optimizado para Proteus
-            from proteus_assembly_generator import ProteusAssemblyGenerator
+            # Usar el nuevo generador optimizado para Proteus - VERSIÓN CORREGIDA
+            from proteus_assembly_generator_fixed import ProteusAssemblyGeneratorFixed
             
-            generator = ProteusAssemblyGenerator()
+            generator = ProteusAssemblyGeneratorFixed()
             
             # Extraer comandos del parser si están disponibles
             motor_commands = []
@@ -852,6 +852,50 @@ class RobotLexicalAnalyzer:
             return True, f"Ejecutable {program_name}.exe generado exitosamente en DOSBox2/Tasm/"
         else:
             return False, f"Error en la compilación: {message}"
+    
+    def generate_and_compile_for_proteus(self, program_name="robot_program"):
+        """Proceso completo optimizado específicamente para Proteus"""
+        try:
+            # Usar el generador específico para Proteus
+            from proteus_specific_generator import ProteusSpecificGenerator
+            
+            generator = ProteusSpecificGenerator()
+            
+            # Generar código ASM específico para Proteus
+            asm_code = generator.generate_proteus_compatible_asm(program_name)
+            
+            # Compilar específicamente para Proteus
+            success, message = generator.compile_for_proteus(asm_code, program_name)
+            
+            if success:
+                return True, f"🎯 EJECUTABLE PROTEUS GENERADO!\n\n{message}\n\n✅ Compatible con procesador 8086\n🔌 Configurado para puertos 0300h-0303h (8255 PPI)\n🤖 Control de 3 motores paso a paso\n📱 Listo para simulación en Proteus ISIS"
+            else:
+                return False, f"Error generando ejecutable para Proteus: {message}"
+                
+        except Exception as e:
+            return False, f"Error en generación para Proteus: {str(e)}"
+    
+    def generate_and_compile_dos_real(self, program_name="robot_program"):
+        """Genera ejecutable DOS REAL para 8086 - Compatible con Proteus"""
+        try:
+            # Usar el generador DOS real
+            from dos_real_generator import DOSRealExecutableGenerator
+            
+            generator = DOSRealExecutableGenerator()
+            
+            # Generar código ASM DOS real
+            asm_code = generator.generate_real_dos_asm(program_name)
+            
+            # Compilar a ejecutable DOS real
+            success, message = generator.compile_to_real_dos_exe(asm_code, program_name)
+            
+            if success:
+                return True, f"🎯 EJECUTABLE DOS REAL GENERADO!\n\n{message}\n\n✅ Compatible con procesador 8086 REAL\n🔌 Configurado para puertos 0300h-0303h (8255 PPI)\n🤖 Control de 3 motores paso a paso\n📱 Formato MS-DOS auténtico para Proteus\n⚡ Sin errores de opcode desconocido"
+            else:
+                return False, f"Error generando ejecutable DOS real: {message}"
+                
+        except Exception as e:
+            return False, f"Error en generación DOS real: {str(e)}"
 
 class SemanticError(Exception):
     """Excepción para errores semánticos"""

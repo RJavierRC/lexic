@@ -1,7 +1,7 @@
 ;===============================================
 ; CONTROL DE MOTORES PARA SIMULACION PROTEUS
 ; Programa: r1_user
-; Generado: 2025-07-14 17:09:29
+; Generado: 2025-07-14 17:28:08
 ; Compatible: 8086/8088 + 8255 PPI
 ;===============================================
 
