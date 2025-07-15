@@ -11,7 +11,7 @@ import glob
 from datetime import datetime
 
 class AssemblyGenerator:
-    """Generador de código ensamblador desde cuádruplos"""
+    """Generador de ensamblador desde cuádruplos"""
     
     def __init__(self):
         self.variables = {}  # Variables declaradas
@@ -20,15 +20,39 @@ class AssemblyGenerator:
         self.temp_vars = {}  # Variables temporales
         self.code_lines = []
         self.data_lines = []
-        self.ports = {
-            'base': 'PORTA',
-            'hombro': 'PORTB', 
-            'codo': 'PORTC',
-            'garra': 'PORTD',
-            'muneca': 'PORTE',
-            'velocidad': 'PORTF'
-        }
         
+        # Configuración específica para Windows
+        self.is_windows = os.name == 'nt'
+        
+        # Rutas del sistema
+        self.base_path = os.path.dirname(os.path.abspath(__file__))
+        self.dosbox_path = os.path.join(self.base_path, "DOSBox2")
+        self.dosbox_exe = os.path.join(self.dosbox_path, "dosbox.exe")
+        self.tasm_path = os.path.join(self.dosbox_path, "Tasm")
+        self.config_file = os.path.join(self.dosbox_path, "configuracion.conf")
+        
+        # Verificar archivos críticos
+        self.verify_system_files()
+        
+    def verify_system_files(self):
+        """Verifica la existencia de archivos críticos para el funcionamiento"""
+        if self.is_windows:
+            # Verificar DOSBox
+            if not os.path.exists(self.dosbox_exe):
+                raise FileNotFoundError(f"DOSBox no encontrado en: {self.dosbox_exe}")
+            
+            # Verificar TASM y TLINK
+            for tool in ["TASM.EXE", "TLINK.EXE"]:
+                tool_path = os.path.join(self.tasm_path, tool)
+                if not os.path.exists(tool_path):
+                    raise FileNotFoundError(f"{tool} no encontrado en: {tool_path}")
+            
+            # Verificar archivo de configuración
+            if not os.path.exists(self.config_file):
+                raise FileNotFoundError(f"Archivo de configuración no encontrado: {self.config_file}")
+        else:
+            raise EnvironmentError("Este programa está optimizado para ejecutarse en Windows.")
+    
     def generate_assembly(self, cuadruplos, program_name="robot_program"):
         """Genera código ensamblador completo desde cuádruplos"""
         self.reset()
@@ -299,6 +323,7 @@ class DOSBoxController:
         self.dosbox_path = dosbox_path
         self.tasm_path = os.path.join(dosbox_path, "Tasm")
         self.dosbox_exe = os.path.join(dosbox_path, "dosbox.exe")
+        self.config_file = os.path.join(dosbox_path, "configuracion.conf")
     
     def compile_assembly(self, asm_code, output_name="robot_program"):
         """Compila código ensamblador usando compilador nativo Windows + fallback DOSBox"""
@@ -333,7 +358,7 @@ class DOSBoxController:
         try:
             # Verificar que estamos en Windows
             if os.name != 'nt':
-                return False, "⚠️ Esta versión está optimizada para Windows."
+                return False, "Esta versión está optimizada para Windows."
             
             # Verificar DOSBox
             if not os.path.exists(self.dosbox_exe):
@@ -349,7 +374,7 @@ class DOSBoxController:
             with open(asm_file, 'w', encoding='ascii', errors='ignore') as f:
                 f.write(asm_code)
             
-            # Script de compilación optimizado para Windows
+            # Script de compilación mejorado para Windows
             batch_script = f"""@echo off
 echo ================================================
 echo ANALIZADOR LEXICO - COMPILACION AUTOMATICA
@@ -427,9 +452,9 @@ echo - Verificar permisos de escritura
                 return False, error_msg
                 
         except subprocess.TimeoutExpired:
-            return False, "⏱️ Timeout: La compilación tardó demasiado (>30s)"
+            return False, "Timeout: La compilación tardó demasiado (>30s)"
         except Exception as e:
-            return False, f"❌ Error al compilar: {str(e)}"
+            return False, f"Error al compilar: {str(e)}"
     
     def get_generated_files(self):
         """Obtiene lista de archivos generados en Windows"""
@@ -454,7 +479,7 @@ echo - Verificar permisos de escritura
         
         if missing:
             return False, "Archivos faltantes:\n" + "\n".join(missing)
-        return True, "✅ Configuración Windows verificada"
+        return True, "Configuración Windows verificada"
 
 def test_assembly_generator():
     """Función de prueba para el generador"""

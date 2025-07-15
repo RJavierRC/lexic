@@ -10,16 +10,16 @@ import platform
 
 def test_windows_setup():
     """Prueba la configuración específica de Windows"""
-    print("🪟 Testing Windows Edition Setup")
+    print("Testing Windows Edition Setup")
     print("=" * 50)
     
     # 1. Verificar sistema operativo
     print(f"Sistema Operativo: {platform.system()}")
     if platform.system() != "Windows":
-        print("⚠️ ADVERTENCIA: Ejecutándose en", platform.system())
+        print("ADVERTENCIA: Ejecutándose en", platform.system())
         print("   Esta versión está optimizada para Windows")
     else:
-        print("✅ Sistema Windows detectado")
+        print("Sistema Windows detectado")
     
     # 2. Verificar archivos principales
     required_files = [
@@ -30,71 +30,72 @@ def test_windows_setup():
         "windows_config.py"
     ]
     
-    print("\n📁 Verificando archivos del proyecto:")
+    print("\nVerificando archivos del proyecto:")
     for file in required_files:
         if os.path.exists(file):
-            print(f"   ✅ {file}")
+            print(f"   OK {file}")
         else:
-            print(f"   ❌ {file} - FALTANTE")
+            print(f"   FALTA {file}")
     
     # 3. Verificar DOSBox y herramientas
     dosbox_files = [
         "DOSBox2/dosbox.exe",
+        "DOSBox2/configuracion.conf",
         "DOSBox2/Tasm/TASM.EXE", 
         "DOSBox2/Tasm/TLINK.EXE"
     ]
     
-    print("\n🛠️ Verificando herramientas de compilación:")
+    print("\nVerificando herramientas de compilación:")
     for file in dosbox_files:
         if os.path.exists(file):
-            print(f"   ✅ {file}")
+            print(f"   OK {file}")
         else:
-            print(f"   ❌ {file} - FALTANTE")
+            print(f"   FALTA {file}")
     
     # 4. Verificar archivos de prueba
     test_files = [f for f in os.listdir(".") if f.endswith(".robot")]
-    print(f"\n🤖 Archivos de prueba encontrados: {len(test_files)}")
+    print(f"\nArchivos de prueba encontrados: {len(test_files)}")
     for file in test_files[:5]:  # Mostrar solo los primeros 5
-        print(f"   📄 {file}")
+        print(f"   {file}")
     if len(test_files) > 5:
         print(f"   ... y {len(test_files) - 5} más")
     
     # 5. Test de importación
-    print("\n🐍 Verificando importaciones Python:")
+    print("\nVerificando importaciones Python:")
     try:
         import tkinter
-        print("   ✅ tkinter")
+        print("   OK tkinter")
     except ImportError:
-        print("   ❌ tkinter - FALTANTE")
+        print("   FALTA tkinter")
     
     try:
         from windows_config import SYSTEM_INFO
-        print("   ✅ windows_config")
-        print(f"      📊 {SYSTEM_INFO['name']} v{SYSTEM_INFO['version']}")
+        print("   OK windows_config")
+        print(f"      {SYSTEM_INFO['name']} v{SYSTEM_INFO['version']}")
     except ImportError as e:
-        print(f"   ❌ windows_config - ERROR: {e}")
+        print(f"   ERROR windows_config: {e}")
     
     try:
         from robot_lexical_analyzer import RobotLexicalAnalyzer
-        print("   ✅ robot_lexical_analyzer")
+        print("   OK robot_lexical_analyzer")
     except ImportError as e:
-        print(f"   ❌ robot_lexical_analyzer - ERROR: {e}")
+        print(f"   ERROR robot_lexical_analyzer: {e}")
     
     try:
         from assembly_generator import DOSBoxController
-        print("   ✅ assembly_generator")
+        print("   OK assembly_generator")
     except ImportError as e:
-        print(f"   ❌ assembly_generator - ERROR: {e}")
+        print(f"   ERROR assembly_generator: {e}")
     
     print("\n" + "=" * 50)
-    print("🎯 Test de configuración Windows completado")
+    print("Test de configuración Windows completado")
     print("\nPara ejecutar la aplicación:")
-    print("   🪟 Windows: start_windows.bat")
-    print("   🐍 Python:  python main.py")
+    print("   Windows: start_windows.bat")
+    print("   Python:  python main.py")
 
 def test_simple_analysis():
     """Prueba rápida del analizador"""
-    print("\n🔍 Test rápido del analizador:")
+    print("\nTest rápido del analizador:")
     
     sample_code = """
 inicio
@@ -111,22 +112,22 @@ fin
         
         # Test léxico
         tokens = analyzer.tokenize(sample_code)
-        print(f"   ✅ Análisis léxico: {len(tokens)} tokens")
+        print(f"   OK Análisis léxico: {len(tokens)} tokens")
         
         # Test sintáctico
         success, message = analyzer.parse(sample_code)
         if success:
-            print("   ✅ Análisis sintáctico: Éxito")
+            print("   OK Análisis sintáctico: Éxito")
         else:
-            print(f"   ❌ Análisis sintáctico: {message}")
+            print(f"   ERROR Análisis sintáctico: {message}")
         
-        print("   ✅ Test básico completado")
+        print("   OK Test básico completado")
         
     except Exception as e:
-        print(f"   ❌ Error en test: {e}")
+        print(f"   ERROR en test: {e}")
 
 if __name__ == "__main__":
     test_windows_setup()
     test_simple_analysis()
     
-    print("\n🚀 ¡Listo para usar el Analizador Léxico Windows Edition!")
+    print("\n¡Listo para usar el Analizador Léxico Windows Edition!")
