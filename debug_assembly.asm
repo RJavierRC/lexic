@@ -27,71 +27,41 @@ CODE_SEG    SEGMENT
         MOV   AL, 10000000B
         OUT   DX, AL
 
-        ; MOTOR A (BASE) - Secuencia de pasos
+        ; MOTOR A (BASE) - Secuencia de pasos (solo giro horario)
         MOV   DX, PORTA
-        MOV   AL, 00000110B
+        MOV   AL, 00000011B    ; Paso 1
         OUT   DX, AL
         MOV   CX, 0FFFFH
 loopy1: LOOP  loopy1
 
-        MOV   AL, 00001100B
+        MOV   AL, 00000110B    ; Paso 2
         OUT   DX, AL
         MOV   CX, 0FFFFH
 loopy2: LOOP  loopy2
 
-        MOV   AL, 00001001B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy3: LOOP  loopy3
-
-        MOV   AL, 00000011B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy4: LOOP  loopy4
-
-        ; MOTOR B (HOMBRO) - Secuencia de pasos
+        ; MOTOR B (HOMBRO) - Secuencia de pasos (solo giro horario)
         MOV   DX, PORTB
-        MOV   AL, 00000110B
+        MOV   AL, 00000011B    ; Paso 1
         OUT   DX, AL
         MOV   CX, 0FFFFH
 loopy5: LOOP  loopy5
 
-        MOV   AL, 00001100B
+        MOV   AL, 00000110B    ; Paso 2
         OUT   DX, AL
         MOV   CX, 0FFFFH
 loopy6: LOOP  loopy6
 
-        MOV   AL, 00001001B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy7: LOOP  loopy7
-
-        MOV   AL, 00000011B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy8: LOOP  loopy8
-
-        ; MOTOR C (CODO) - Secuencia de pasos
+        ; MOTOR C (CODO) - Secuencia de pasos (solo giro horario)
         MOV   DX, PORTC
-        MOV   AL, 00000110B
+        MOV   AL, 00000011B    ; Paso 1
         OUT   DX, AL
         MOV   CX, 0FFFFH
 loopy9: LOOP  loopy9
 
-        MOV   AL, 00001100B
+        MOV   AL, 00000110B    ; Paso 2
         OUT   DX, AL
         MOV   CX, 0FFFFH
 loopy10: LOOP  loopy10
-
-        MOV   AL, 00001001B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy11: LOOP  loopy11
-
-        MOV   AL, 00000011B
-        OUT   DX, AL
-        MOV   CX, 0FFFFH
-loopy12: LOOP  loopy12
 
         ; Terminar programa
         MOV    AH,4CH

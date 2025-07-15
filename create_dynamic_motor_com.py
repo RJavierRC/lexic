@@ -99,6 +99,7 @@ def extract_motor_values(analyzer):
 def generate_dynamic_machine_code(motor_values):
     """
     Genera código máquina dinámico basado en los valores de motores
+    Solo gira una vez en sentido horario (con las manecillas del reloj)
     """
     machine_code = []
     
@@ -107,49 +108,39 @@ def generate_dynamic_machine_code(motor_values):
     machine_code.extend([0xB0, 0x80])        # MOV AL, 80h (configuración)
     machine_code.extend([0xEE])               # OUT DX, AL
     
-    # === MOTOR BASE DINÁMICO ===
-    base_angle = motor_values.get('base', 45)
-    base_steps = calculate_steps_for_angle(base_angle)
-    
+    # === MOTOR BASE DINÁMICO === (giro horario)
     machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 0000h (Puerto A)
     
-    for step in range(base_steps):
-        pattern = get_step_pattern(step % 4)  # Ciclo de 4 patrones
+    # Secuencia de 4 pasos en sentido horario
+    steps = [0x09, 0x0C, 0x06, 0x03]  # Secuencia horaria corregida
+    for pattern in steps:
         machine_code.extend([0xB0, pattern])  # MOV AL, pattern
         machine_code.extend([0xEE])           # OUT DX, AL
         
-        # Delay proporcional al ángulo
-        delay = calculate_delay_for_angle(base_angle)
+        # Delay fijo para movimiento suave
+        delay = 0x8000
         machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
         machine_code.extend([0xE2, 0xFE])     # LOOP $
     
-    # === MOTOR HOMBRO DINÁMICO ===
-    hombro_angle = motor_values.get('hombro', 90)
-    hombro_steps = calculate_steps_for_angle(hombro_angle)
-    
+    # === MOTOR HOMBRO DINÁMICO === (giro horario)
     machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 0002h (Puerto B)
     
-    for step in range(hombro_steps):
-        pattern = get_step_pattern(step % 4)
+    for pattern in steps:
         machine_code.extend([0xB0, pattern])  # MOV AL, pattern
         machine_code.extend([0xEE])           # OUT DX, AL
         
-        delay = calculate_delay_for_angle(hombro_angle)
+        delay = 0x8000
         machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
         machine_code.extend([0xE2, 0xFE])     # LOOP $
     
-    # === MOTOR CODO DINÁMICO ===
-    codo_angle = motor_values.get('codo', 60)
-    codo_steps = calculate_steps_for_angle(codo_angle)
-    
+    # === MOTOR CODO DINÁMICO === (giro horario)
     machine_code.extend([0xBA, 0x04, 0x00])  # MOV DX, 0004h (Puerto C)
     
-    for step in range(codo_steps):
-        pattern = get_step_pattern(step % 4)
+    for pattern in steps:
         machine_code.extend([0xB0, pattern])  # MOV AL, pattern
         machine_code.extend([0xEE])           # OUT DX, AL
         
-        delay = calculate_delay_for_angle(codo_angle)
+        delay = 0x8000
         machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
         machine_code.extend([0xE2, 0xFE])     # LOOP $
     
@@ -159,23 +150,11 @@ def generate_dynamic_machine_code(motor_values):
     
     return machine_code
 
-def calculate_steps_for_angle(angle):
-    """
-    Calcula el número de pasos necesarios para un ángulo dado
-    Basado en motores paso a paso estándar
-    """
-    # Motor paso a paso típico: 1.8° por paso (200 pasos = 360°)
-    steps_per_degree = 200 / 360  # ≈ 0.56 pasos por grado
-    steps = max(1, int(angle * steps_per_degree))
-    
-    # Limitar a un rango razonable pero permitir diferencias
-    return min(steps, 50)  # Máximo 50 pasos para mantener archivos pequeños pero permitir variación
-
 def get_step_pattern(step_index):
     """
-    Retorna el patrón de bits para el paso específico
+    Retorna el patrón de bits para el paso específico (solo giro horario)
     """
-    patterns = [0x06, 0x0C, 0x09, 0x03]  # Secuencia estándar de motor paso a paso
+    patterns = [0x09, 0x0C, 0x06, 0x03]  # Secuencia horaria corregida
     return patterns[step_index % 4]
 
 def calculate_delay_for_angle(angle):
