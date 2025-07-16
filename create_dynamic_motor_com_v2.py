@@ -96,8 +96,7 @@ def generate_dynamic_machine_code(motor_values=None):
 
     # Inicializar contador de repeticiones en CX
     machine_code.extend([
-        0xB1, repeticiones,  # MOV CL, número_repeticiones
-        0xB5, 0x00          # MOV CH, 0
+     0xB9, repeticiones & 0xFF, (repeticiones >> 8) & 0xFF  # MOV CX, repeticiones (16 bits)
     ])
 
     # Etiqueta de inicio del bucle
@@ -184,7 +183,6 @@ def generate_dynamic_machine_code(motor_values=None):
     ])
 
     return machine_code
-
 
 # Función para usar desde main.py
 def create_dynamic_com_from_analyzer(analyzer):
