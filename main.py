@@ -810,7 +810,8 @@ class LexicalAnalyzerGUI:
                 'hombro': 90,
                 'codo': 60,
                 'velocidad': 2,
-                'espera': 1
+                'espera': 1,
+                'repetir': 1
             }
             return defaults.get(component.lower(), 0)
             
@@ -902,6 +903,7 @@ class LexicalAnalyzerGUI:
             f"📝 Sintaxis soportada:\n"
             f"Robot nombre\n"
             f"nombre.componente = valor\n"
+            f"nombre.repetir = N (1-100 repeticiones)\n"
             f"nombre.inicio ... nombre.fin\n\n"
             f"� Archivos generados en: DOSBox2\\Tasm\\")
     

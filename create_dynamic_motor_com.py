@@ -46,12 +46,13 @@ def create_dynamic_motor_com(analyzer):
 
 def extract_motor_values(analyzer):
     """
-    Extrae los valores de motores del código Robot parseado
+    Extrae los valores de motores del código Robot parseado, incluyendo repeticiones
     """
     motor_values = {
         'base': 45,      # Valores por defecto
         'hombro': 90,
-        'codo': 60
+        'codo': 60,
+        'repetir': 1     # Valor por defecto de repeticiones
     }
     
     try:
@@ -62,9 +63,9 @@ def extract_motor_values(analyzer):
                 component = assignment.get('component', '').lower()
                 value = assignment.get('value', 0)
                 
-                if component in ['base', 'hombro', 'codo']:
+                if component in ['base', 'hombro', 'codo', 'repetir']:
                     motor_values[component] = int(float(value))
-                    print(f"✅ Extraído {component} = {value}° desde parser")
+                    print(f"✅ Extraído {component} = {value}{'°' if component != 'repetir' else ''} desde parser")
         
         # Buscar también en tokens si está disponible
         elif hasattr(analyzer, 'tokens') and analyzer.tokens:
@@ -75,7 +76,7 @@ def extract_motor_values(analyzer):
                     
                     # Buscar componentes (pueden ser KEYWORD o COMPONENT)
                     if (token.type in ['COMPONENT', 'KEYWORD'] and 
-                        token.value.lower() in ['base', 'hombro', 'codo']):
+                        token.value.lower() in ['base', 'hombro', 'codo', 'repetir']):
                         
                         # Buscar el valor después del '=' (puede ser ASSIGN o ASSIGN_OP)
                         if (i + 2 < len(analyzer.tokens) and 
@@ -85,8 +86,16 @@ def extract_motor_values(analyzer):
                             value_token = analyzer.tokens[i + 2]
                             if hasattr(value_token, 'value'):
                                 motor_values[token.value.lower()] = int(float(value_token.value))
-                                print(f"✅ Extraído {token.value.lower()} = {value_token.value}° desde tokens")
+                                print(f"✅ Extraído {token.value.lower()} = {value_token.value}{'°' if token.value.lower() != 'repetir' else ''} desde tokens")
                 i += 1
+        
+        # Validar el rango de repeticiones
+        if motor_values['repetir'] < 1:
+            motor_values['repetir'] = 1
+            print(f"⚠️ Repeticiones ajustadas a mínimo: 1")
+        elif motor_values['repetir'] > 100:
+            motor_values['repetir'] = 100
+            print(f"⚠️ Repeticiones ajustadas a máximo: 100")
         
         # Si no se encontraron valores, usar los por defecto
         print(f"🔍 Valores finales de motores: {motor_values}")
@@ -98,10 +107,12 @@ def extract_motor_values(analyzer):
 
 def generate_dynamic_machine_code(motor_values):
     """
-    Genera código máquina dinámico basado en los valores de motores
-    Solo gira una vez en sentido horario y regresa a posición inicial
+    Genera código máquina dinámico con repeticiones automáticas y sin opcodes problemáticos
     """
     machine_code = []
+    repetitions = motor_values.get('repetir', 1)
+    
+    print(f"🔄 Generando código con {repetitions} repeticiones - SIN OPCODES PROBLEMÁTICOS")
     
     # Configuración 8255 (igual para todos)
     machine_code.extend([0xBA, 0x06, 0x00])  # MOV DX, 0006h (puerto control)
@@ -121,59 +132,108 @@ def generate_dynamic_machine_code(motor_values):
     machine_code.extend([0xB0, 0x00])        # MOV AL, 0
     machine_code.extend([0xEE])              # OUT DX, AL
     
-    # === MOTOR BASE DINÁMICO === (giro horario)
+    # === INICIALIZAR CONTADOR DE REPETICIONES ===
+    # Usar register BX como contador de repeticiones
+    machine_code.extend([0xBB, repetitions & 0xFF, (repetitions >> 8) & 0xFF])  # MOV BX, repetitions
+    
+    # === ETIQUETA DE INICIO DE LOOP ===
+    loop_start_address = len(machine_code)
+    
+    # === MOTOR BASE DINÁMICO ===
     machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 0000h (Puerto A)
     
-    # Secuencia de 4 pasos en sentido horario
+    # Secuencia de 4 pasos en sentido horario - SIN OPCODES PROBLEMÁTICOS
     steps = [0x09, 0x0C, 0x06, 0x03]  # Secuencia horaria corregida
     for pattern in steps:
         machine_code.extend([0xB0, pattern])  # MOV AL, pattern
         machine_code.extend([0xEE])           # OUT DX, AL
         
-        # Delay fijo para movimiento suave
-        delay = 0x8000
+        # Delay SEGURO - usando DEC/JNZ en lugar de LOOP
+        delay = 0x1000  # Delay más corto para evitar problemas
         machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
-        machine_code.extend([0xE2, 0xFE])     # LOOP $
+        # Reemplazar LOOP problemático con DEC CX; JNZ
+        machine_code.extend([0x49])     # DEC CX
+        machine_code.extend([0x75, 0xFD])  # JNZ -3 (volver a DEC CX)
     
-    # Regresar a posición inicial (0 grados) - Motor BASE
+    # Regresar a posición inicial - Motor BASE
     machine_code.extend([0xB0, 0x00])  # MOV AL, 0 (apagar bobinas)
     machine_code.extend([0xEE])        # OUT DX, AL
     
-    # === MOTOR HOMBRO DINÁMICO === (giro horario)
+    # === MOTOR HOMBRO DINÁMICO ===
     machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 0002h (Puerto B)
     
     for pattern in steps:
         machine_code.extend([0xB0, pattern])  # MOV AL, pattern
         machine_code.extend([0xEE])           # OUT DX, AL
         
-        delay = 0x8000
+        delay = 0x1000  # Delay más corto para evitar problemas
         machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
-        machine_code.extend([0xE2, 0xFE])     # LOOP $
+        # Reemplazar LOOP problemático con DEC CX; JNZ
+        machine_code.extend([0x49])     # DEC CX
+        machine_code.extend([0x75, 0xFD])  # JNZ -3 (volver a DEC CX)
     
-    # Regresar a posición inicial (0 grados) - Motor HOMBRO
+    # Regresar a posición inicial - Motor HOMBRO
     machine_code.extend([0xB0, 0x00])  # MOV AL, 0 (apagar bobinas)
     machine_code.extend([0xEE])        # OUT DX, AL
     
-    # === MOTOR CODO DINÁMICO === (giro horario)
+    # === MOTOR CODO DINÁMICO ===
     machine_code.extend([0xBA, 0x04, 0x00])  # MOV DX, 0004h (Puerto C)
     
     for pattern in steps:
         machine_code.extend([0xB0, pattern])  # MOV AL, pattern
         machine_code.extend([0xEE])           # OUT DX, AL
         
-        delay = 0x8000
+        delay = 0x1000  # Delay más corto para evitar problemas
         machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
-        machine_code.extend([0xE2, 0xFE])     # LOOP $
+        # Reemplazar LOOP problemático con DEC CX; JNZ
+        machine_code.extend([0x49])     # DEC CX
+        machine_code.extend([0x75, 0xFD])  # JNZ -3 (volver a DEC CX)
         
-    # Regresar a posición inicial (0 grados) - Motor CODO
+    # Regresar a posición inicial - Motor CODO
     machine_code.extend([0xB0, 0x00])  # MOV AL, 0 (apagar bobinas)
     machine_code.extend([0xEE])        # OUT DX, AL
+    
+    # === PAUSA ENTRE REPETICIONES ===
+    if repetitions > 1:
+        # Pausa más larga entre repeticiones
+        pause_delay = 0x2000  # Pausa visible entre repeticiones
+        machine_code.extend([0xB9, pause_delay & 0xFF, (pause_delay >> 8) & 0xFF])  # MOV CX, pause_delay
+        machine_code.extend([0x49])     # DEC CX
+        machine_code.extend([0x75, 0xFD])  # JNZ -3
+    
+    # === CONTROL DE REPETICIÓN ===
+    # Decrementar contador BX
+    machine_code.extend([0x4B])  # DEC BX
+    
+    # Comparar con cero y saltar si no es cero
+    machine_code.extend([0x83, 0xFB, 0x00])  # CMP BX, 0
+    
+    # Salto relativo de vuelta al inicio del loop
+    current_position = len(machine_code) + 2  # +2 for the JNZ instruction
+    offset = loop_start_address - current_position
+    
+    # Convertir offset a complemento a 2 de 8 bits
+    if offset < 0:
+        offset_byte = (256 + offset) & 0xFF
+    else:
+        offset_byte = offset & 0xFF
+    
+    machine_code.extend([0x75, offset_byte])  # JNZ loop_start (saltar si BX != 0)
     
     # Finalizar programa limpiamente
     machine_code.extend([0xB8, 0x00, 0x4C])  # MOV AX, 4C00h
     machine_code.extend([0xCD, 0x21])        # INT 21h (salir)
     
+    print(f"✅ Código generado: {len(machine_code)} bytes con {repetitions} repeticiones - SIN OPCODES PROBLEMÁTICOS")
+    
     return machine_code
+
+def calculate_steps_from_angle(angle):
+    """Calcula el número de pasos necesarios para un ángulo dado"""
+    # Aproximación: 1 paso = 1.8 grados (motor paso a paso típico)
+    steps_per_degree = 1.8
+    steps = int(angle / steps_per_degree)
+    return max(1, min(steps, 4))  # Limitar entre 1 y 4 pasos para evitar problemas
 
 def get_step_pattern(step_index):
     """
