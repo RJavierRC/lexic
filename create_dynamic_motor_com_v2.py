@@ -89,121 +89,100 @@ def extract_motor_values(analyzer):
     
     return motor_values
 
-def generate_dynamic_machine_code(motor_values):
+def generate_dynamic_machine_code(motor_values=None):
     """
     Genera código máquina dinámico para el archivo .COM
-    - Secuencia horaria (con las manecillas del reloj)
-    - Control preciso de tiempos
-    - Retorno garantizado a posición inicial
+    - Cada motor gira una secuencia horaria de 4 pasos (90°)
+    - Luego regresa con la secuencia inversa (–90°)
+    - Incluye retardos entre movimientos
     """
     machine_code = []
-    
-    # Configuración 8255 (todos los puertos como salida)
-    machine_code.extend([0xBA, 0x06, 0x00])  # MOV DX, 0006h (puerto control)
-    machine_code.extend([0xB0, 0x80])        # MOV AL, 80h (configuración)
+
+    # Configurar todos los puertos como salida (8255)
+    machine_code.extend([0xBA, 0x06, 0x00])  # MOV DX, 0006h
+    machine_code.extend([0xB0, 0x80])        # MOV AL, 80h
     machine_code.extend([0xEE])              # OUT DX, AL
-    
-    # Inicialización - Todos los puertos en 0
-    for port in [0x00, 0x02, 0x04]:  # Puertos A, B, C
+
+    # Inicializar puertos A, B y C en 0
+    for port in [0x00, 0x02, 0x04]:
         machine_code.extend([
             0xBA, port, 0x00,  # MOV DX, puerto
             0xB0, 0x00,        # MOV AL, 0
             0xEE               # OUT DX, AL
         ])
-    
-    # Delay inicial de estabilización
+
+    # Delay de estabilización inicial
     machine_code.extend([
         0xB9, 0xFF, 0x1F,     # MOV CX, 1FFFh
         0xE2, 0xFE            # LOOP $
     ])
-    
-    # === MOTOR BASE (Puerto A - 00h) ===
-    machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 0000h
-    
-    # Secuencia horaria - 4 pasos
-    steps = [0x09, 0x0C, 0x06, 0x03]  # Giro horario
-    for pattern in steps:
-        machine_code.extend([
-            0xB0, pattern,     # MOV AL, pattern
-            0xEE,             # OUT DX, AL
-            0xB9, 0x00, 0x80, # MOV CX, 8000h (delay)
-            0xE2, 0xFE        # LOOP $
-        ])
-    
-    # Secuencia de retorno a posición inicial (0 grados)
-    reverse_steps = [0x03, 0x06, 0x0C, 0x09]  # Secuencia inversa
-    for _ in range(2):  # Repetir secuencia de retorno para asegurar posición
+
+    # Patrón de pasos (sentido horario y antihorario)
+    steps = [0x09, 0x0C, 0x06, 0x03]        # Avance
+    reverse_steps = [0x03, 0x06, 0x0C, 0x09] # Retorno
+
+    # Función auxiliar para agregar secuencia
+    def add_motor_sequence(port):
+        # Seleccionar puerto
+        machine_code.extend([0xBA, port, 0x00])  # MOV DX, port
+
+        # Giro hacia adelante
+        for pattern in steps:
+            machine_code.extend([
+                0xB0, pattern,     # MOV AL, pattern
+                0xEE,              # OUT DX, AL
+                0xB9, 0x00, 0x80,  # MOV CX, 8000h (delay)
+                0xE2, 0xFE         # LOOP $
+            ])
+
+        # Retorno (giro inverso)
         for pattern in reverse_steps:
             machine_code.extend([
                 0xB0, pattern,     # MOV AL, pattern
-                0xEE,             # OUT DX, AL
-                0xB9, 0x00, 0x40, # MOV CX, 4000h (delay más corto para retorno)
-                0xE2, 0xFE        # LOOP $
+                0xEE,              # OUT DX, AL
+                0xB9, 0x00, 0x40,  # MOV CX, 4000h (delay más corto)
+                0xE2, 0xFE         # LOOP $
             ])
-    
-    # Asegurar posición final en 0
-    machine_code.extend([
-        0xB0, 0x00,          # MOV AL, 0 (posición inicial)
-        0xEE,                # OUT DX, AL
-        0xB9, 0xFF, 0x1F,    # MOV CX, 1FFFh (delay entre motores)
-        0xE2, 0xFE           # LOOP $
-    ])
-    
-    # === MOTOR HOMBRO (Puerto B - 02h) ===
-    machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 0002h
-    
-    for pattern in steps:
+
+        # Asegurar motor apagado (posición 0)
         machine_code.extend([
-            0xB0, pattern,     # MOV AL, pattern
-            0xEE,             # OUT DX, AL
-            0xB9, 0x00, 0x80, # MOV CX, 8000h (delay)
-            0xE2, 0xFE        # LOOP $
+            0xB0, 0x00,          # MOV AL, 0
+            0xEE,                # OUT DX, AL
+            0xB9, 0xFF, 0x1F,    # MOV CX, 1FFFh (delay entre motores)
+            0xE2, 0xFE           # LOOP $
         ])
-    
-    # Retorno a 0 y delay
+
+    # === Motor BASE (Puerto A - 00h) ===
+    add_motor_sequence(0x00)
+
+    # === Motor HOMBRO (Puerto B - 02h) ===
+    add_motor_sequence(0x02)
+
+    # === Motor CODO (Puerto C - 04h) ===
+    add_motor_sequence(0x04)
+
+    # Delay final extendido
     machine_code.extend([
-        0xB0, 0x00,          # MOV AL, 0 (posición inicial)
-        0xEE,                # OUT DX, AL
-        0xB9, 0xFF, 0x1F,    # MOV CX, 1FFFh (delay entre motores)
+        0xB9, 0xFF, 0x3F,    # MOV CX, 3FFFh
         0xE2, 0xFE           # LOOP $
     ])
-    
-    # === MOTOR CODO (Puerto C - 04h) ===
-    machine_code.extend([0xBA, 0x04, 0x00])  # MOV DX, 0004h
-    
-    for pattern in steps:
-        machine_code.extend([
-            0xB0, pattern,     # MOV AL, pattern
-            0xEE,             # OUT DX, AL
-            0xB9, 0x00, 0x80, # MOV CX, 8000h (delay)
-            0xE2, 0xFE        # LOOP $
-        ])
-    
-    # Retorno a 0 final
-    machine_code.extend([
-        0xB0, 0x00,          # MOV AL, 0 (posición inicial)
-        0xEE                 # OUT DX, AL
-    ])
-    
-    # Delay final extendido para estabilización
-    machine_code.extend([
-        0xB9, 0xFF, 0x3F,    # MOV CX, 3FFFh (delay más largo)
-        0xE2, 0xFE           # LOOP $
-    ])
-    
-    # Verificación final - Asegurar todos los puertos en 0
+
+    # Asegurar que todos los puertos queden en 0
     for port in [0x00, 0x02, 0x04]:
         machine_code.extend([
-            0xBA, port, 0x00, # MOV DX, puerto
-            0xB0, 0x00,       # MOV AL, 0
-            0xEE              # OUT DX, AL
+            0xBA, port, 0x00,  # MOV DX, port
+            0xB0, 0x00,        # MOV AL, 0
+            0xEE               # OUT DX, AL
         ])
-    
-    # Terminar programa limpiamente
+
+    # Salida limpia del programa
     machine_code.extend([
         0xB8, 0x00, 0x4C,    # MOV AX, 4C00h
         0xCD, 0x21           # INT 21h
     ])
+
+    return machine_code
+
     
     return machine_code
 
