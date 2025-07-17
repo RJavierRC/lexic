@@ -83,106 +83,91 @@ def extract_motor_values(analyzer):
         raise ValueError(f"Error extrayendo valores: {e}")
 
 def generate_dynamic_machine_code(motor_values=None):
-    """
-    Genera código máquina dinámico con soporte para repeticiones
-    """
     machine_code = []
     repeticiones = motor_values.get('repeticiones', 1)
+    if repeticiones < 1:
+        repeticiones = 1
 
-    # Configurar puertos como salida (8255)
+    # Configurar puerto como salida
     machine_code.extend([0xBA, 0x06, 0x00])  # MOV DX, 0006h
     machine_code.extend([0xB0, 0x80])        # MOV AL, 80h
     machine_code.extend([0xEE])              # OUT DX, AL
 
-    # Inicializar contador de repeticiones en CX
-    machine_code.extend([
-     0xB9, repeticiones & 0xFF, (repeticiones >> 8) & 0xFF  # MOV CX, repeticiones (16 bits)
-    ])
-
-    # Etiqueta de inicio del bucle
-    loop_start = len(machine_code)
-
-    # Guardar CX (push cx)
-    machine_code.extend([0x51])
-
-    # Delay de estabilización inicial
-    machine_code.extend([
-        0xB9, 0xFF, 0x1F,     # MOV CX, 1FFFh
-        0xE2, 0xFE            # LOOP $
-    ])
-
-    # Patrón de pasos (sentido horario y antihorario)
-    steps = [0x09, 0x0C, 0x06, 0x03]        # Avance
-    reverse_steps = [0x03, 0x06, 0x0C, 0x09] # Retorno
-
-    # Función auxiliar para agregar secuencia
-    def add_motor_sequence(port):
-        # Seleccionar puerto
-        machine_code.extend([0xBA, port, 0x00])  # MOV DX, port
-
-        # Giro hacia adelante
-        for pattern in steps:
-            machine_code.extend([
-                0xB0, pattern,     # MOV AL, pattern
-                0xEE,              # OUT DX, AL
-                0xB9, 0x00, 0x80,  # MOV CX, 8000h (delay)
-                0xE2, 0xFE         # LOOP $
-            ])
-
-        # Retorno (giro inverso)
-        for pattern in reverse_steps:
-            machine_code.extend([
-                0xB0, pattern,     # MOV AL, pattern
-                0xEE,              # OUT DX, AL
-                0xB9, 0x00, 0x40,  # MOV CX, 4000h (delay más corto)
-                0xE2, 0xFE         # LOOP $
-            ])
-
-        # Asegurar motor apagado (posición 0)
-        machine_code.extend([
-            0xB0, 0x00,          # MOV AL, 0
-            0xEE,                # OUT DX, AL
-            0xB9, 0xFF, 0x1F,    # MOV CX, 1FFFh (delay entre motores)
-            0xE2, 0xFE           # LOOP $
-        ])
-
-    # === Motor BASE (Puerto A - 00h) ===
-    add_motor_sequence(0x00)
-
-    # === Motor HOMBRO (Puerto B - 02h) ===
-    add_motor_sequence(0x02)
-
-    # === Motor CODO (Puerto C - 04h) ===
-    add_motor_sequence(0x04)
-
-    # Delay final extendido
-    machine_code.extend([
-        0xB9, 0xFF, 0x3F,    # MOV CX, 3FFFh
-        0xE2, 0xFE           # LOOP $
-    ])
-
-    # Asegurar que todos los puertos queden en 0
+    # Inicializar motores en 0
     for port in [0x00, 0x02, 0x04]:
         machine_code.extend([
-            0xBA, port, 0x00,  # MOV DX, port
-            0xB0, 0x00,        # MOV AL, 0
-            0xEE               # OUT DX, AL
+            0xBA, port, 0x00,
+            0xB0, 0x00,
+            0xEE
         ])
 
-    # Recuperar CX (pop cx)
-    machine_code.extend([0x59])
-    
-    # Loop si CX > 0 (loop loop_start)
-    relative_jump = -(len(machine_code) - loop_start + 2)
-    machine_code.extend([0xE2, relative_jump & 0xFF])
+    def add_delay(count):
+        machine_code.extend([0xB9, count & 0xFF, (count >> 8) & 0xFF])  # MOV CX, count
+        loop_pos = len(machine_code)
+        machine_code.extend([0x90])  # NOP
+        machine_code.extend([0x49])  # DEC CX
+        rel = loop_pos - (len(machine_code) + 2)
+        machine_code.extend([0x75, rel & 0xFF])  # JNZ
 
-    # Salida limpia
-    machine_code.extend([
-        0xB8, 0x00, 0x4C,    # MOV AX, 4C00h
-        0xCD, 0x21           # INT 21h
-    ])
+    steps = [0x09, 0x0C, 0x06, 0x03]
+    reverse_steps = [0x03, 0x06, 0x0C, 0x09]
+
+    def add_motor_sequence(port):
+        machine_code.extend([0xBA, port, 0x00])  # MOV DX, port
+
+        for pattern in steps:
+            machine_code.extend([0xB0, pattern, 0xEE])
+            add_delay(0x4000)
+
+        for pattern in reverse_steps:
+            machine_code.extend([0xB0, pattern, 0xEE])
+            add_delay(0x4000)
+
+        # Apagar motor
+        machine_code.extend([0xB0, 0x00, 0xEE])
+        add_delay(0x2000)
+
+    # Contador de repeticiones en SI
+    machine_code.extend([0xBE, repeticiones & 0xFF, (repeticiones >> 8) & 0xFF])  # MOV SI, N
+
+    loop_start = len(machine_code)
+
+    # Secuencia de los 3 motores por ciclo
+    add_motor_sequence(0x00)  # BASE
+    add_motor_sequence(0x02)  # HOMBRO
+    add_motor_sequence(0x04)  # CODO
+
+    # DECREMENTAR contador SI y verificar si termina
+    machine_code.extend([0x4E])  # DEC SI
+    machine_code.extend([0x83, 0xFE, 0x00])  # CMP SI, 0
+
+    je_offset_pos = len(machine_code)
+    machine_code.extend([0x74, 0x00])  # JE fin
+
+    # JMP NEAR al inicio del bucle
+    jmp_offset = loop_start - (len(machine_code) + 3)
+    machine_code.extend([0xE9, jmp_offset & 0xFF, (jmp_offset >> 8) & 0xFF])
+
+    # Corregir offset del salto JE
+    je_target = len(machine_code)
+    rel_je = je_target - (je_offset_pos + 2)
+    machine_code[je_offset_pos + 1] = rel_je & 0xFF
+
+    # Apagar todos los motores
+    for port in [0x00, 0x02, 0x04]:
+        machine_code.extend([
+            0xBA, port, 0x00,
+            0xB0, 0x00,
+            0xEE
+        ])
+
+    # Salir a DOS
+    machine_code.extend([0xB8, 0x00, 0x4C, 0xCD, 0x21])  # INT 21h
 
     return machine_code
+
+
+
 
 # Función para usar desde main.py
 def create_dynamic_com_from_analyzer(analyzer):
@@ -210,3 +195,14 @@ if __name__ == "__main__":
     
     mock_analyzer = MockAnalyzer()
     create_dynamic_motor_com(mock_analyzer)
+    class MockAnalyzer:
+        def __init__(self):
+            self.parser = type('obj', (object,), {
+                'assignments': [
+                    {'component': 'base', 'value': 20},
+                    {'component': 'hombro', 'value': 100}, 
+                    {'component': 'codo', 'value': 50}
+                ]
+            })()
+
+
