@@ -1,0 +1,28 @@
+org 100h
+
+; Configurar puerto 6h como salida
+mov dx, 06h
+mov al, 80h
+out dx, al
+
+; Enviar paso al motor (puerto 0)
+mov dx, 00h
+mov al, 09h
+out dx, al
+
+; Delay sencillo (poco preciso pero visible)
+mov cx, 0FFFFh
+delay1:
+nop
+nop
+loop delay1
+
+; Apagar motor
+mov al, 00h
+out dx, al
+
+mov ah, 4Ch
+int 21h
+
+
+
