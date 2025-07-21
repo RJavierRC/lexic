@@ -677,11 +677,11 @@ class LexicalAnalyzerGUI:
             
             self.update_status(f"📁 Generando {program_name}.com para Proteus...")
             
-            # Crear el generador COM DINÁMICO ARREGLADO
-            import create_fixed_velocity_com
+            # Crear el generador COM SIMPLE QUE FUNCIONA
+            import create_simple_working_com
             
-            # Generar el archivo COM dinámico usando los valores del código CON SISTEMA ARREGLADO
-            success = create_fixed_velocity_com.create_dynamic_com_from_analyzer_fixed(self.analyzer)
+            # Generar el archivo COM simple basado en noname.com
+            success = create_simple_working_com.create_dynamic_com_from_analyzer_fixed(self.analyzer)
             
             # Paths para renombrar
             original_path = os.path.join("DOSBox2", "Tasm", "motor_user.com")
