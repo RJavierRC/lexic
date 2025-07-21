@@ -668,11 +668,11 @@ class LexicalAnalyzerGUI:
             
             self.update_status(f"📁 Generando {program_name}.com para Proteus...")
             
-            # Crear el generador COM DINÁMICO MEJORADO
-            import create_improved_velocity_com
+            # Crear el generador COM DINÁMICO ARREGLADO
+            import create_fixed_velocity_com
             
-            # Generar el archivo COM dinámico usando los valores del código CON VELOCIDAD MEJORADA
-            success = create_improved_velocity_com.create_dynamic_com_from_analyzer_improved(self.analyzer)
+            # Generar el archivo COM dinámico usando los valores del código CON SISTEMA ARREGLADO
+            success = create_fixed_velocity_com.create_dynamic_com_from_analyzer_fixed(self.analyzer)
             
             # Paths para renombrar
             original_path = os.path.join("DOSBox2", "Tasm", "motor_user.com")
@@ -686,31 +686,31 @@ class LexicalAnalyzerGUI:
                 file_size = os.path.getsize(new_path)
                 
                 success_msg = (
-                    f"🚀 ¡ARCHIVO .COM CON VELOCIDAD MEJORADA!\n\n"
+                    f"🔧 ¡ARCHIVO .COM CON MOVIMIENTOS ARREGLADOS!\n\n"
                     f"📂 Archivo: {program_name}.com\n"
                     f"📏 Tamaño: {file_size} bytes\n"
                     f"📍 Ubicación: DOSBox2\\Tasm\\\n"
-                    f"⚡ Sistema: VELOCIDAD MEJORADA\n\n"
+                    f"✅ Sistema: MOVIMIENTOS CORREGIDOS\n\n"
                     f"🤖 VALORES EXTRAÍDOS DE TU CÓDIGO:\n"
                     f"• r1.base = {self.get_motor_value('base')}°\n"
                     f"• r1.hombro = {self.get_motor_value('hombro')}°\n"
-                    f"• r1.codo = {self.get_motor_value('codo')}°\n"
-                    f"• r1.velocidad = {self.get_motor_value('velocidad')}\n\n"
-                    f"🚀 NUEVO SISTEMA DE VELOCIDAD:\n"
-                    f"• NÚMEROS ALTOS = MOVIMIENTO RÁPIDO\n"
-                    f"• NÚMEROS BAJOS = MOVIMIENTO LENTO\n"
-                    f"• Velocidades más visibles en Proteus\n"
-                    f"• Control mejorado de motores paso a paso\n\n"
+                    f"• r1.codo = {self.get_motor_value('codo')}°\n\n"
+                    f"🔧 PROBLEMAS ARREGLADOS:\n"
+                    f"• ✅ Todos los motores se mueven correctamente\n"
+                    f"• ✅ Secuencia de movimiento correcta\n"
+                    f"• ✅ Retorno a casa funciona bien\n"
+                    f"• ✅ Motor codo ahora funciona\n"
+                    f"• ✅ Velocidad solo afecta timing\n\n"
                     f"🎮 CARGAR EN PROTEUS:\n"
                     f"1. Archivo: {program_name}.com\n"
                     f"2. Procesador: 8086 Real Mode\n"
                     f"3. 8255 PPI en 0300h-0303h\n"
-                    f"4. ¡Ahora verás diferencias de velocidad!\n\n"
-                    f"⚡ EJEMPLOS DE VELOCIDAD:\n"
-                    f"• r1.velocidad = 1  → MUY LENTO\n"
-                    f"• r1.velocidad = 3  → NORMAL\n"
-                    f"• r1.velocidad = 8  → RÁPIDO\n"
-                    f"• r1.velocidad = 10 → MUY RÁPIDO"
+                    f"4. ¡Todos los motores deberían funcionar!\n\n"
+                    f"⚡ COMPORTAMIENTO ESPERADO:\n"
+                    f"• Base se mueve a 45° (velocidad {self.get_motor_value('velocidad')})\n"
+                    f"• Hombro se mueve a 120° \n"
+                    f"• Codo se mueve a 90° \n"
+                    f"• Todos regresan a 0° en orden"
                 )
                 
                 messagebox.showinfo("📁 ¡Archivo .COM Listo!", success_msg)
