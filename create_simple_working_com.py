@@ -92,10 +92,9 @@ def generate_simple_code(values):
         
     machine_code = []
     
-    # EXACT structure from working noname.com
-    # Configure 8255 PPI
-    machine_code.extend([0xBA, 0x06, 0x00])  # MOV DX, 0006h (like noname.com)
-    machine_code.extend([0xB0, 0x80])        # MOV AL, 80h
+    # Configure 8255 PPI for YOUR Proteus setup (0x0000-0x0003)
+    machine_code.extend([0xBA, 0x03, 0x00])  # MOV DX, 0003h (Control register)
+    machine_code.extend([0xB0, 0x80])        # MOV AL, 80h (All ports output)
     machine_code.extend([0xEE])              # OUT DX, AL
     
     # Move motors based on actual angles from your code
@@ -103,10 +102,13 @@ def generate_simple_code(values):
     
     stepper_sequence = [0x06, 0x0C, 0x09, 0x03]
     
-    # BASE motor - move to specified angle
+    # Add infinite loop start (like noname.com)
+    loop_start = len(machine_code)
+    
+    # BASE motor - move to specified angle (Port A = 0x0000)
     if base_angle > 0:
         steps = max(1, abs(base_angle) // 15)  # 1 step per 15 degrees
-        machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 0000h
+        machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 0000h (Port A)
         for step_num in range(steps):
             step_value = stepper_sequence[step_num % 4]
             machine_code.extend([0xB0, step_value])  # MOV AL, step
@@ -114,10 +116,10 @@ def generate_simple_code(values):
             machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
             machine_code.extend([0xE2, 0xFE])        # LOOP $-2
     
-    # HOMBRO motor - move to specified angle  
+    # HOMBRO motor - move to specified angle (Port B = 0x0001)
     if hombro_angle > 0:
         steps = max(1, abs(hombro_angle) // 15)
-        machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 0002h
+        machine_code.extend([0xBA, 0x01, 0x00])  # MOV DX, 0001h (Port B)
         for step_num in range(steps):
             step_value = stepper_sequence[step_num % 4]
             machine_code.extend([0xB0, step_value])  # MOV AL, step
@@ -125,10 +127,10 @@ def generate_simple_code(values):
             machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
             machine_code.extend([0xE2, 0xFE])        # LOOP $-2
     
-    # CODO motor - move to specified angle
+    # CODO motor - move to specified angle (Port C = 0x0002)
     if codo_angle > 0:
         steps = max(1, abs(codo_angle) // 15)
-        machine_code.extend([0xBA, 0x04, 0x00])  # MOV DX, 0004h  
+        machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 0002h (Port C)
         for step_num in range(steps):
             step_value = stepper_sequence[step_num % 4]
             machine_code.extend([0xB0, step_value])  # MOV AL, step
@@ -136,19 +138,19 @@ def generate_simple_code(values):
             machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
             machine_code.extend([0xE2, 0xFE])        # LOOP $-2
     
-    # Return to home positions (like noname.com)
-    for port in [0x00, 0x02, 0x04]:
+    # Return to home positions (correct ports 0x0000, 0x0001, 0x0002)
+    for port in [0x00, 0x01, 0x02]:
         machine_code.extend([0xBA, port, 0x00])  # MOV DX, port
         machine_code.extend([0xB0, 0x00])        # MOV AL, 0
         machine_code.extend([0xEE])              # OUT DX, AL
         
-        # Fast return delay (like noname.com)
+        # Fast return delay
         machine_code.extend([0xB9, 0x55, 0x55])  # MOV CX, 5555h
         machine_code.extend([0xE2, 0xFE])        # LOOP $-2
     
-    # Exit
-    machine_code.extend([0xB8, 0x00, 0x4C])  # MOV AX, 4C00h
-    machine_code.extend([0xCD, 0x21])        # INT 21h
+    # INFINITE LOOP (like noname.com) - keeps motors moving continuously
+    jmp_offset = loop_start - (len(machine_code) + 3)
+    machine_code.extend([0xE9, jmp_offset & 0xFF, (jmp_offset >> 8) & 0xFF])  # JMP loop_start
     
     print(f"📦 Generated {len(machine_code)} bytes - simple and fast!")
     return machine_code
