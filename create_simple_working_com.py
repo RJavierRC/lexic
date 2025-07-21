@@ -98,32 +98,32 @@ def generate_simple_code(values):
     machine_code.extend([0xB0, 0x80])        # MOV AL, 80h
     machine_code.extend([0xEE])              # OUT DX, AL
     
-    # Move BASE motor
-    machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 0000h (like noname.com)
-    machine_code.extend([0xB0, base_angle])  # MOV AL, base_angle
-    machine_code.extend([0xEE])              # OUT DX, AL
+    # Use EXACT stepper patterns from noname.com
+    stepper_pattern = [0x06, 0x0C, 0x09, 0x03]  # 4-step pattern
     
-    # Simple delay
-    machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
-    machine_code.extend([0xE2, 0xFE])        # LOOP $-2
+    # Move BASE motor with stepper pattern
+    machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 0000h
+    for step in stepper_pattern:
+        machine_code.extend([0xB0, step])    # MOV AL, step
+        machine_code.extend([0xEE])          # OUT DX, AL
+        machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
+        machine_code.extend([0xE2, 0xFE])    # LOOP $-2
     
-    # Move HOMBRO motor  
-    machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 0002h (like noname.com)
-    machine_code.extend([0xB0, hombro_angle]) # MOV AL, hombro_angle
-    machine_code.extend([0xEE])              # OUT DX, AL
+    # Move HOMBRO motor with stepper pattern
+    machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 0002h
+    for step in stepper_pattern:
+        machine_code.extend([0xB0, step])    # MOV AL, step
+        machine_code.extend([0xEE])          # OUT DX, AL
+        machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
+        machine_code.extend([0xE2, 0xFE])    # LOOP $-2
     
-    # Simple delay
-    machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])
-    machine_code.extend([0xE2, 0xFE])
-    
-    # Move CODO motor
-    machine_code.extend([0xBA, 0x04, 0x00])  # MOV DX, 0004h (like noname.com)
-    machine_code.extend([0xB0, codo_angle])  # MOV AL, codo_angle
-    machine_code.extend([0xEE])              # OUT DX, AL
-    
-    # Simple delay
-    machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])
-    machine_code.extend([0xE2, 0xFE])
+    # Move CODO motor with stepper pattern
+    machine_code.extend([0xBA, 0x04, 0x00])  # MOV DX, 0004h
+    for step in stepper_pattern:
+        machine_code.extend([0xB0, step])    # MOV AL, step
+        machine_code.extend([0xEE])          # OUT DX, AL
+        machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])  # MOV CX, delay
+        machine_code.extend([0xE2, 0xFE])    # LOOP $-2
     
     # Return to home positions (like noname.com)
     for port in [0x00, 0x02, 0x04]:
