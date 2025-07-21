@@ -365,6 +365,9 @@ class LexicalAnalyzerGUI:
             self.update_status("🔍 Analizando código robótico...")
             tokens, errors = self.analyzer.analyze(code)
             
+            # Store the raw code for generators
+            self.analyzer.raw_code = code
+            
             # Permitir compilación incluso con errores menores/warnings
             critical_errors = [e for e in errors if "crítico" in str(e).lower() or "fatal" in str(e).lower()]
             if critical_errors:
@@ -537,6 +540,9 @@ class LexicalAnalyzerGUI:
             self.update_status("🔍 Analizando código para Proteus...")
             tokens, errors = self.analyzer.analyze(code)
             
+            # Store the raw code for generators
+            self.analyzer.raw_code = code
+            
             # Solo rechazar errores críticos
             critical_errors = [e for e in errors if "crítico" in str(e).lower() or "fatal" in str(e).lower()]
             if critical_errors:
@@ -642,6 +648,9 @@ class LexicalAnalyzerGUI:
             # Analizar código
             self.update_status("🔍 Analizando código para archivo .COM...")
             tokens, errors = self.analyzer.analyze(code)
+            
+            # Store the raw code for the COM generator
+            self.analyzer.raw_code = code
             
             # Solo rechazar errores críticos
             critical_errors = [e for e in errors if "crítico" in str(e).lower() or "fatal" in str(e).lower()]
