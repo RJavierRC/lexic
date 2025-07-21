@@ -680,8 +680,8 @@ class LexicalAnalyzerGUI:
             # Crear el generador COM EXACTO
             import create_exact_copy
             
-            # Generar archivo COM exacto como noname.com
-            success = create_exact_copy.create_exact_copy()
+            # Generar archivo COM exacto como noname.com pero con valores del usuario
+            success = create_exact_copy.create_exact_copy(self.analyzer)
             
             # Paths para renombrar
             original_path = os.path.join("DOSBox2", "Tasm", "motor_user.com")
