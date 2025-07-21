@@ -668,11 +668,11 @@ class LexicalAnalyzerGUI:
             
             self.update_status(f"📁 Generando {program_name}.com para Proteus...")
             
-            # Crear el generador COM DINÁMICO optimizado
-            import create_dynamic_motor_com_v2
+            # Crear el generador COM DINÁMICO MEJORADO
+            import create_improved_velocity_com
             
-            # Generar el archivo COM dinámico usando los valores del código
-            success = create_dynamic_motor_com_v2.create_dynamic_com_from_analyzer(self.analyzer)
+            # Generar el archivo COM dinámico usando los valores del código CON VELOCIDAD MEJORADA
+            success = create_improved_velocity_com.create_dynamic_com_from_analyzer_improved(self.analyzer)
             
             # Paths para renombrar
             original_path = os.path.join("DOSBox2", "Tasm", "motor_user.com")
@@ -686,26 +686,31 @@ class LexicalAnalyzerGUI:
                 file_size = os.path.getsize(new_path)
                 
                 success_msg = (
-                    f"📁 ¡ARCHIVO .COM DINÁMICO!\n\n"
+                    f"🚀 ¡ARCHIVO .COM CON VELOCIDAD MEJORADA!\n\n"
                     f"📂 Archivo: {program_name}.com\n"
                     f"📏 Tamaño: {file_size} bytes\n"
                     f"📍 Ubicación: DOSBox2\\Tasm\\\n"
-                    f"🎯 Formato: .COM (basado en tu código)\n\n"
+                    f"⚡ Sistema: VELOCIDAD MEJORADA\n\n"
                     f"🤖 VALORES EXTRAÍDOS DE TU CÓDIGO:\n"
                     f"• r1.base = {self.get_motor_value('base')}°\n"
                     f"• r1.hombro = {self.get_motor_value('hombro')}°\n"
                     f"• r1.codo = {self.get_motor_value('codo')}°\n"
-                    f"• r1.velocidad = {self.get_motor_value('velocidad')}\n"
-                    f"• r1.espera = {self.get_motor_value('espera')}\n\n"
-                    f"✅ ARCHIVO .COM GENERADO DINÁMICAMENTE:\n"
-                    f"• Ángulos exactos de tu sintaxis\n"
-                    f"• Código máquina personalizado\n"
-                    f"• No valores estáticos\n\n"
+                    f"• r1.velocidad = {self.get_motor_value('velocidad')}\n\n"
+                    f"🚀 NUEVO SISTEMA DE VELOCIDAD:\n"
+                    f"• NÚMEROS ALTOS = MOVIMIENTO RÁPIDO\n"
+                    f"• NÚMEROS BAJOS = MOVIMIENTO LENTO\n"
+                    f"• Velocidades más visibles en Proteus\n"
+                    f"• Control mejorado de motores paso a paso\n\n"
                     f"🎮 CARGAR EN PROTEUS:\n"
                     f"1. Archivo: {program_name}.com\n"
                     f"2. Procesador: 8086 Real Mode\n"
-                    f"3. ¡Ángulos de tu código Robot!\n"
-                    f"4. Completamente personalizado"
+                    f"3. 8255 PPI en 0300h-0303h\n"
+                    f"4. ¡Ahora verás diferencias de velocidad!\n\n"
+                    f"⚡ EJEMPLOS DE VELOCIDAD:\n"
+                    f"• r1.velocidad = 1  → MUY LENTO\n"
+                    f"• r1.velocidad = 3  → NORMAL\n"
+                    f"• r1.velocidad = 8  → RÁPIDO\n"
+                    f"• r1.velocidad = 10 → MUY RÁPIDO"
                 )
                 
                 messagebox.showinfo("📁 ¡Archivo .COM Listo!", success_msg)
