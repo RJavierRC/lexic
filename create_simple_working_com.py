@@ -81,24 +81,25 @@ def generate_simple_code(values):
     codo_angle = values['codo']
     velocity = values['velocidad']
     
-    # Convert velocity to simple delay (avoid CPU overload!)
+    # Use EXACT delays from working noname.com
     # Higher velocity = shorter delay
     if velocity >= 8:
-        delay = 0x00FF  # Fast
+        delay = 0x5555  # Fast (like noname.com)
     elif velocity >= 4:
-        delay = 0x0FFF  # Normal  
+        delay = 0xAAAA  # Normal (like noname.com)
     else:
-        delay = 0x1FFF  # Slow
+        delay = 0xFFFF  # Slow (like noname.com)
         
     machine_code = []
     
+    # EXACT structure from working noname.com
     # Configure 8255 PPI
-    machine_code.extend([0xBA, 0x03, 0x03])  # MOV DX, 0303h
+    machine_code.extend([0xBA, 0x06, 0x00])  # MOV DX, 0006h (like noname.com)
     machine_code.extend([0xB0, 0x80])        # MOV AL, 80h
     machine_code.extend([0xEE])              # OUT DX, AL
     
     # Move BASE motor
-    machine_code.extend([0xBA, 0x00, 0x03])  # MOV DX, 0300h
+    machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 0000h (like noname.com)
     machine_code.extend([0xB0, base_angle])  # MOV AL, base_angle
     machine_code.extend([0xEE])              # OUT DX, AL
     
@@ -107,7 +108,7 @@ def generate_simple_code(values):
     machine_code.extend([0xE2, 0xFE])        # LOOP $-2
     
     # Move HOMBRO motor  
-    machine_code.extend([0xBA, 0x01, 0x03])  # MOV DX, 0301h
+    machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 0002h (like noname.com)
     machine_code.extend([0xB0, hombro_angle]) # MOV AL, hombro_angle
     machine_code.extend([0xEE])              # OUT DX, AL
     
@@ -116,7 +117,7 @@ def generate_simple_code(values):
     machine_code.extend([0xE2, 0xFE])
     
     # Move CODO motor
-    machine_code.extend([0xBA, 0x02, 0x03])  # MOV DX, 0302h  
+    machine_code.extend([0xBA, 0x04, 0x00])  # MOV DX, 0004h (like noname.com)
     machine_code.extend([0xB0, codo_angle])  # MOV AL, codo_angle
     machine_code.extend([0xEE])              # OUT DX, AL
     
@@ -124,14 +125,14 @@ def generate_simple_code(values):
     machine_code.extend([0xB9, delay & 0xFF, (delay >> 8) & 0xFF])
     machine_code.extend([0xE2, 0xFE])
     
-    # Return to home positions
-    for port, name in [(0x00, 'base'), (0x01, 'hombro'), (0x02, 'codo')]:
-        machine_code.extend([0xBA, port, 0x03])  # MOV DX, port
+    # Return to home positions (like noname.com)
+    for port in [0x00, 0x02, 0x04]:
+        machine_code.extend([0xBA, port, 0x00])  # MOV DX, port
         machine_code.extend([0xB0, 0x00])        # MOV AL, 0
         machine_code.extend([0xEE])              # OUT DX, AL
         
-        # Fast return delay
-        machine_code.extend([0xB9, 0xFF, 0x0F])  # MOV CX, 0FFFh
+        # Fast return delay (like noname.com)
+        machine_code.extend([0xB9, 0x55, 0x55])  # MOV CX, 5555h
         machine_code.extend([0xE2, 0xFE])        # LOOP $-2
     
     # Exit
