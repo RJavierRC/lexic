@@ -12,7 +12,7 @@ def create_working_robot_com(analyzer=None):
     # Extract Robot code values
     robot_values = extract_robot_values(analyzer) if analyzer else get_default_values()
     print(f"🎯 Robot values: Base={robot_values['base']}°, Hombro={robot_values['hombro']}°, Codo={robot_values['codo']}°")
-    print(f"⚡ Velocities: {robot_values['velocities']}")
+    print(f"⚡ Velocidades: {robot_values['velocidades']}")
     
     # Build machine code using EXACT robot.asm structure
     machine_code = []
@@ -31,64 +31,80 @@ def create_working_robot_com(analyzer=None):
     
     print("🤖 Following EXACT robot.asm sequence...")
     
-    # === EXACT ROBOT.ASM SEQUENCE ===
+    # === EXACT ROBOT.ASM SEQUENCE with Robot syntax mapping ===
     
-    # Lines 12-27: Port 00h with 4 patterns + DELAY2
+    # Get velocities for each motor from Robot syntax
+    base_velocity = get_delay_function(robot_values['velocidades'][0] if robot_values['velocidades'] else 2)
+    hombro_velocity = get_delay_function(robot_values['velocidades'][1] if len(robot_values['velocidades']) > 1 else 3)
+    codo_velocity = get_delay_function(robot_values['velocidades'][2] if len(robot_values['velocidades']) > 2 else 5)
+    
+    print(f"🎯 Motor velocities: Base={base_velocity}, Hombro={hombro_velocity}, Codo={codo_velocity}")
+    
+    # MOTOR BASE CONTROL (Lines 12-32: Port 0x00)
+    print(f"🔧 BASE Motor: {robot_values['base']}° with {base_velocity}")
     machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 00h
     
-    patterns_00h = [0x0C, 0x06, 0x03, 0x09]  # Exact from robot.asm
-    delay_func_1 = get_delay_function(robot_values['velocities'][0] if robot_values['velocities'] else 2)
+    # 4-step sequence for BASE motor (lines 12-27)
+    patterns_base = [0x0C, 0x06, 0x03, 0x09]  # Exact from robot.asm
+    steps_base = max(1, abs(robot_values['base']) // 15)  # More steps for larger angles
     
-    for pattern in patterns_00h:
+    for i in range(steps_base):
+        pattern = patterns_base[i % len(patterns_base)]
         machine_code.extend([0xB0, pattern])    # MOV AL, pattern
         machine_code.extend([0xEE])             # OUT DX, AL
-        add_delay_call(machine_code, delay_func_1)
+        add_delay_call(machine_code, base_velocity)
     
-    # Lines 29-32: Port 00h with 11000000b + DELAY2  
+    # BASE motor reset (lines 29-32)
     machine_code.extend([0xBA, 0x00, 0x00])  # MOV DX, 00h
     machine_code.extend([0xB0, 0xC0])        # MOV AL, 11000000b
     machine_code.extend([0xEE])              # OUT DX, AL
-    add_delay_call(machine_code, delay_func_1)
+    add_delay_call(machine_code, base_velocity)
     
-    # Lines 34-37: Port 02h with 00001100b + DELAY3
+    # MOTOR HOMBRO CONTROL (Lines 34-41: Port 0x02)
+    print(f"🔧 HOMBRO Motor: {robot_values['hombro']}° with {hombro_velocity}")
     machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 02h
+    
+    # HOMBRO sequence (lines 34-37)
     machine_code.extend([0xB0, 0x0C])        # MOV AL, 00001100b
     machine_code.extend([0xEE])              # OUT DX, AL
-    delay_func_2 = get_delay_function(robot_values['velocities'][1] if len(robot_values['velocities']) > 1 else 3)
-    add_delay_call(machine_code, delay_func_2)
+    add_delay_call(machine_code, hombro_velocity)
     
-    # Lines 39-41: Port 02h with 00000110b + DELAY3
+    # HOMBRO sequence (lines 39-41)
     machine_code.extend([0xB0, 0x06])        # MOV AL, 00000110b
     machine_code.extend([0xEE])              # OUT DX, AL
-    add_delay_call(machine_code, delay_func_2)
+    add_delay_call(machine_code, hombro_velocity)
     
-    # Lines 43-46: Port 02h with 11000000b + DELAY4
+    # HOMBRO reset sequence (lines 43-46)
     machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 02h
     machine_code.extend([0xB0, 0xC0])        # MOV AL, 11000000b
     machine_code.extend([0xEE])              # OUT DX, AL
-    delay_func_3 = get_delay_function(robot_values['velocities'][2] if len(robot_values['velocities']) > 2 else 4)
-    add_delay_call(machine_code, delay_func_3)
+    add_delay_call(machine_code, codo_velocity)  # Use codo velocity for transition
     
-    # Lines 48-82: Complex sequence with DELAY5
-    delay_func_4 = get_delay_function(5)  # Slowest for complex movements
+    # MOTOR CODO CONTROL (Lines 48-82: Complex sequence with both ports)
+    print(f"🔧 CODO Motor: {robot_values['codo']}° with {codo_velocity}")
+    steps_codo = max(2, abs(robot_values['codo']) // 20)  # More steps for codo
     
-    # Sequence from robot.asm lines 48-82 
-    sequence = [
-        (0x02, 0x90),  # Line 48-51
-        (0x02, 0x0C),  # Line 54-56  
-        (0x02, 0x09),  # Line 58-60
-        (0x00, 0x90),  # Line 62-65
-        (0x00, 0x03),  # Line 67-70
-        (0x00, 0x06),  # Line 72-74
-        (0x00, 0x0C),  # Line 76-78
-        (0x00, 0x09),  # Line 80-82
+    # Complex sequence from robot.asm lines 48-82 - CONTROLS THE THIRD MOTOR
+    codo_sequence = [
+        (0x02, 0x90),  # Line 48-51: Port 02h, pattern 10010000b
+        (0x02, 0x0C),  # Line 54-56: Port 02h, pattern 00001100b  
+        (0x02, 0x09),  # Line 58-60: Port 02h, pattern 00001001b
+        (0x00, 0x90),  # Line 62-65: Port 00h, pattern 10010000b
+        (0x00, 0x03),  # Line 67-70: Port 00h, pattern 00000011b
+        (0x00, 0x06),  # Line 72-74: Port 00h, pattern 00000110b
+        (0x00, 0x0C),  # Line 76-78: Port 00h, pattern 00001100b
+        (0x00, 0x09),  # Line 80-82: Port 00h, pattern 00001001b
     ]
     
-    for port, pattern in sequence:
+    # Execute CODO sequence multiple times based on angle
+    for step in range(steps_codo):
+        port, pattern = codo_sequence[step % len(codo_sequence)]
         machine_code.extend([0xBA, port, 0x00])  # MOV DX, port
         machine_code.extend([0xB0, pattern])     # MOV AL, pattern
         machine_code.extend([0xEE])              # OUT DX, AL
-        add_delay_call(machine_code, delay_func_4)
+        add_delay_call(machine_code, codo_velocity)
+    
+    print(f"✅ All 3 motors controlled: Base({steps_base} steps), Hombro(2 steps), Codo({steps_codo} steps)")
     
     # Loop control (exactly like robot.asm lines 84-86)
     machine_code.extend([0x4E])                      # DEC SI
@@ -114,36 +130,56 @@ def create_working_robot_com(analyzer=None):
     return True
 
 def extract_robot_values(analyzer):
-    """Extract values from Robot code"""
+    """Extract values from Robot code using BOTH parser and raw_code"""
     values = {
         'base': 45, 'hombro': 90, 'codo': 60,
-        'velocities': [2, 3, 4],
+        'velocidades': [2, 3, 4],
         'repetitions': 2
     }
     
     try:
+        # Method 1: Extract from parser assignments (preferred)
+        if hasattr(analyzer, 'parser') and analyzer.parser and hasattr(analyzer.parser, 'assignments'):
+            velocidades = []
+            for assignment in analyzer.parser.assignments:
+                component = assignment.get('component', '').lower()
+                value = assignment.get('value', 0)
+                
+                if component in ['base', 'hombro', 'codo']:
+                    values[component] = int(float(value))
+                    print(f"✅ Parser: {component} = {value}°")
+                elif component == 'velocidad':
+                    velocidades.append(float(value))
+                    print(f"✅ Parser: velocidad = {value}")
+                elif component == 'repetir':
+                    values['repetitions'] = int(float(value))
+            
+            if velocidades:
+                values['velocidades'] = velocidades[:3]
+        
+        # Method 2: Extract from raw code as backup
         raw_code = getattr(analyzer, 'raw_code', '') or getattr(analyzer, 'code', '')
-        if raw_code:
-            velocities = []
+        if raw_code and not hasattr(analyzer, 'parser'):
+            velocidades = []
             lines = raw_code.split('\n')
             
             for line in lines:
                 line = line.strip()
                 if '.base' in line and '=' in line:
-                    values['base'] = int(line.split('=')[1].strip())
+                    values['base'] = int(float(line.split('=')[1].strip()))
                 elif '.hombro' in line and '=' in line:
-                    values['hombro'] = int(line.split('=')[1].strip())
+                    values['hombro'] = int(float(line.split('=')[1].strip()))
                 elif '.codo' in line and '=' in line:
-                    values['codo'] = int(line.split('=')[1].strip())
+                    values['codo'] = int(float(line.split('=')[1].strip()))
                 elif '.velocidad' in line and '=' in line:
-                    velocities.append(float(line.split('=')[1].strip()))
+                    velocidades.append(float(line.split('=')[1].strip()))
                 elif '.repetir' in line and '=' in line:
-                    values['repetitions'] = int(line.split('=')[1].strip())
+                    values['repetitions'] = int(float(line.split('=')[1].strip()))
             
-            if velocities:
-                values['velocities'] = velocities[:3]  # Max 3 velocities
-                
-            print(f"📝 Extracted: {values}")
+            if velocidades:
+                values['velocidades'] = velocidades[:3]
+        
+        print(f"📝 Final extracted: {values}")
                 
     except Exception as e:
         print(f"⚠️ Using defaults due to: {e}")
@@ -154,7 +190,7 @@ def get_default_values():
     """Default test values"""
     return {
         'base': 45, 'hombro': 120, 'codo': 90,
-        'velocities': [4, 7, 9],
+        'velocidades': [4, 7, 9],
         'repetitions': 2
     }
 
@@ -209,6 +245,17 @@ r1.hombro = 120
 r1.velocidad = 9       
 r1.codo = 90       
 r1.fin"""
+            # Also add parser simulation
+            self.parser = type('obj', (object,), {
+                'assignments': [
+                    {'component': 'velocidad', 'value': 4},
+                    {'component': 'base', 'value': 45},
+                    {'component': 'velocidad', 'value': 7}, 
+                    {'component': 'hombro', 'value': 120},
+                    {'component': 'velocidad', 'value': 9},
+                    {'component': 'codo', 'value': 90}
+                ]
+            })()
     
     print("🧪 Testing WORKING robot.asm based system...")
     mock = MockAnalyzer()

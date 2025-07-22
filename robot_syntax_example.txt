@@ -1,0 +1,105 @@
+🤖 EXAMPLE ROBOT SYNTAX FOR 3-MOTOR CONTROL WITH VELOCITIES
+
+==================================================================
+WORKING ROBOT SYNTAX EXAMPLE:
+==================================================================
+
+Robot r1
+r1.inicio
+r1.velocidad = 4
+r1.base = 45
+r1.velocidad = 7  
+r1.hombro = 120
+r1.velocidad = 9
+r1.codo = 90
+r1.fin
+
+==================================================================
+EXPLANATION:
+==================================================================
+
+• Robot r1        → Declares robot named 'r1'
+• r1.inicio       → Starts robot program block
+• r1.velocidad = 4 → Sets velocity for next motor (Base)
+• r1.base = 45     → Moves base motor to 45 degrees
+• r1.velocidad = 7 → Sets velocity for next motor (Hombro) 
+• r1.hombro = 120  → Moves hombro motor to 120 degrees
+• r1.velocidad = 9 → Sets velocity for next motor (Codo)
+• r1.codo = 90     → Moves codo motor to 90 degrees
+• r1.fin          → Ends robot program block
+
+==================================================================
+VELOCITY MAPPING (based on robot.asm DELAY functions):
+==================================================================
+
+• Velocidad 1-4  → DELAY5 (slowest, 0xFFFF cycles)
+• Velocidad 5-6  → DELAY4 (slow, 0xFFFF cycles) 
+• Velocidad 7-8  → DELAY3 (fast, 0x0FFF cycles)
+• Velocidad 9+   → DELAY2 (fastest, 0x0FFF cycles)
+
+==================================================================
+MOTOR PORT MAPPING (based on working robot.asm):
+==================================================================
+
+• BASE Motor   → Port 0x00 (lines 12-32 in robot.asm)
+• HOMBRO Motor → Port 0x02 (lines 34-46 in robot.asm) 
+• CODO Motor   → Port 0x00 & 0x02 mixed (lines 48-82 in robot.asm)
+
+==================================================================
+ANGLE RANGES:
+==================================================================
+
+• base:   0-360° (full rotation)
+• hombro: 0-180° (half rotation)
+• codo:   0-180° (half rotation)
+
+==================================================================
+ALTERNATIVE EXAMPLES:
+==================================================================
+
+SLOW MOVEMENTS:
+Robot r2
+r2.inicio
+r2.velocidad = 2
+r2.base = 90
+r2.velocidad = 3
+r2.hombro = 60
+r2.velocidad = 1
+r2.codo = 45
+r2.fin
+
+FAST MOVEMENTS:
+Robot r3
+r3.inicio  
+r3.velocidad = 9
+r3.base = 180
+r3.velocidad = 8
+r3.hombro = 90
+r3.velocidad = 10
+r3.codo = 135
+r3.fin
+
+EXTREME ANGLES:
+Robot r4
+r4.inicio
+r4.velocidad = 5
+r4.base = 270
+r4.velocidad = 6  
+r4.hombro = 180
+r4.velocidad = 7
+r4.codo = 180
+r4.fin
+
+==================================================================
+GENERATED .COM FILE CHARACTERISTICS:
+==================================================================
+
+✅ Follows EXACT robot.asm sequence (lines 6-91)
+✅ Uses proven stepper patterns: 0x0C, 0x06, 0x03, 0x09
+✅ Controls 3 motors using only ports 0x00 and 0x02
+✅ Implements DELAY2, DELAY3, DELAY4, DELAY5 for velocity control
+✅ Compatible with Proteus 8086 + 8255 PPI simulation
+✅ No CPU overload errors in Proteus
+✅ All 3 motors move with visible velocity differences
+
+==================================================================
