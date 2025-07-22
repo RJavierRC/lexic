@@ -1,0 +1,133 @@
+.model small
+.stack 100h
+
+.code
+start:
+    MOV DX, 06h
+    MOV AL, 10000000b
+    OUT DX, AL
+
+MOV SI, 2
+CICLO1:
+    MOV DX, 00h
+    MOV AL, 00001100b
+    OUT DX, AL
+    CALL DELAY2
+
+    MOV AL, 00000110b
+    OUT DX, AL
+    CALL DELAY2
+
+    MOV AL, 00000011b
+    OUT DX, AL
+    CALL DELAY2
+
+    MOV AL, 00001001b
+    OUT DX, AL
+    CALL DELAY2
+
+    MOV DX, 00h
+    MOV AL, 11000000b
+    OUT DX, AL
+    CALL DELAY2
+
+    MOV DX, 02h
+    MOV AL, 00001100b
+    OUT DX, AL
+    CALL DELAY3
+
+    MOV AL, 00000110b
+    OUT DX, AL
+    CALL DELAY3
+
+    MOV DX, 02h
+    MOV AL, 11000000b
+    OUT DX, AL
+    CALL DELAY4
+
+    MOV DX, 02h
+    MOV AL, 10010000b
+    OUT DX, AL
+    CALL DELAY5
+
+    MOV DX, 02h
+    MOV AL, 00001100b
+    OUT DX, AL
+    CALL DELAY5
+
+    MOV AL, 00001001b
+    OUT DX, AL
+    CALL DELAY5
+
+    MOV DX, 00h
+    MOV AL, 10010000b
+    OUT DX, AL
+    CALL DELAY5
+
+    MOV DX, 00h
+    MOV AL, 00000011b
+    OUT DX, AL
+    CALL DELAY5
+
+    MOV AL, 00000110b
+    OUT DX, AL
+    CALL DELAY5
+
+    MOV AL, 00001100b
+    OUT DX, AL
+    CALL DELAY5
+
+    MOV AL, 00001001b
+    OUT DX, AL
+    CALL DELAY5
+
+    DEC SI
+    JZ SALIR_CICLO1
+    JMP CICLO1
+
+SALIR_CICLO1:
+
+FIN: 
+JMP FIN
+
+    DELAY1:
+        MOV CX, 00fffh
+    LOOP_D1:
+        LOOP LOOP_D1
+    RET
+
+    DELAY2:
+        MOV CX, 0FFFh
+    LOOP_D2:
+        LOOP LOOP_D2
+    RET
+
+    DELAY3:
+        MOV CX, 0FFFh
+    LOOP_D3:
+        LOOP LOOP_D3
+    RET
+
+    DELAY4:
+        MOV CX, 0FFFFh
+    LOOP_D4:
+        LOOP LOOP_D4
+    RET
+
+    DELAY5:
+        MOV CX, 0FFFFh
+    LOOP_D5:
+        LOOP LOOP_D5
+    RET
+
+   ESPERA_LARGA:
+       MOV CX, 0FFFFH
+   LOOP_ESPERA:
+       LOOP LOOP_ESPERA
+        RET
+
+
+    MOV AH, 4Ch
+    INT 21h
+
+end start

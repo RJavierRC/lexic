@@ -677,11 +677,11 @@ class LexicalAnalyzerGUI:
             
             self.update_status(f"📁 Generando {program_name}.com para Proteus...")
             
-            # Crear el generador COM EXACTO
-            import create_exact_copy
+            # Crear generador COM basado en robot.asm FUNCIONAL
+            import create_working_robot_com
             
-            # Generar archivo COM exacto como noname.com pero con valores del usuario
-            success = create_exact_copy.create_exact_copy(self.analyzer)
+            # Generar archivo COM basado en el robot.asm que funciona
+            success = create_working_robot_com.create_dynamic_com_from_analyzer_fixed(self.analyzer)
             
             # Paths para renombrar
             original_path = os.path.join("DOSBox2", "Tasm", "motor_user.com")
@@ -695,31 +695,32 @@ class LexicalAnalyzerGUI:
                 file_size = os.path.getsize(new_path)
                 
                 success_msg = (
-                    f"🔧 ¡ARCHIVO .COM CON MOVIMIENTOS ARREGLADOS!\n\n"
+                    f"🤖 ¡SECUENCIA EXACTA DE ROBOT.ASM!\n\n"
                     f"📂 Archivo: {program_name}.com\n"
                     f"📏 Tamaño: {file_size} bytes\n"
                     f"📍 Ubicación: DOSBox2\\Tasm\\\n"
-                    f"✅ Sistema: MOVIMIENTOS CORREGIDOS\n\n"
-                    f"🤖 VALORES EXTRAÍDOS DE TU CÓDIGO:\n"
+                    f"✅ Copia EXACTA: secuencia línea por línea del robot.asm funcional\n\n"
+                    f"🎯 VALORES DE TU CÓDIGO ROBOT:\n"
                     f"• r1.base = {self.get_motor_value('base')}°\n"
                     f"• r1.hombro = {self.get_motor_value('hombro')}°\n"
-                    f"• r1.codo = {self.get_motor_value('codo')}°\n\n"
-                    f"🔧 PROBLEMAS ARREGLADOS:\n"
-                    f"• ✅ Todos los motores se mueven correctamente\n"
-                    f"• ✅ Secuencia de movimiento correcta\n"
-                    f"• ✅ Retorno a casa funciona bien\n"
-                    f"• ✅ Motor codo ahora funciona\n"
-                    f"• ✅ Velocidad solo afecta timing\n\n"
+                    f"• r1.codo = {self.get_motor_value('codo')}°\n"
+                    f"• r1.velocidad = {self.get_motor_value('velocidad')}\n\n"
+                    f"🔧 SECUENCIA EXACTA ROBOT.ASM:\n"
+                    f"• ✅ Patrones exactos: 0x0C, 0x06, 0x03, 0x09\n"
+                    f"• ✅ Puertos exactos: 0x00, 0x02, 0x06\n"
+                    f"• ✅ DELAY2 (0x0FFF), DELAY3 (0x0FFF), DELAY4 (0xFFFF), DELAY5 (0xFFFF)\n"
+                    f"• ✅ Secuencia líneas 12-82 de robot.asm\n"
+                    f"• ✅ Loop control exacto: DEC SI, JZ, JMP\n\n"
                     f"🎮 CARGAR EN PROTEUS:\n"
                     f"1. Archivo: {program_name}.com\n"
                     f"2. Procesador: 8086 Real Mode\n"
-                    f"3. 8255 PPI en 0300h-0303h\n"
-                    f"4. ¡Todos los motores deberían funcionar!\n\n"
-                    f"⚡ COMPORTAMIENTO ESPERADO:\n"
-                    f"• Base se mueve a 45° (velocidad {self.get_motor_value('velocidad')})\n"
-                    f"• Hombro se mueve a 120° \n"
-                    f"• Codo se mueve a 90° \n"
-                    f"• Todos regresan a 0° en orden"
+                    f"3. 8255 PPI en direcciones exactas de robot.asm\n"
+                    f"4. ¡Secuencia IDÉNTICA a robot.exe funcional!\n\n"
+                    f"⚡ VELOCIDADES CONTROLADAS:\n"
+                    f"• Velocidad 1-4 = DELAY5 (más lento)\n"
+                    f"• Velocidad 5-6 = DELAY4 (lento)\n"
+                    f"• Velocidad 7-8 = DELAY3 (rápido)\n"
+                    f"• Velocidad 9+ = DELAY2 (más rápido)"
                 )
                 
                 messagebox.showinfo("📁 ¡Archivo .COM Listo!", success_msg)

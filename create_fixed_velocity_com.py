@@ -281,10 +281,11 @@ def generate_fixed_movement_code(sequence):
         if velocity_level <= 0:
             velocity_level = 1
             
-        # Simple linear scale: Higher velocity = shorter delay
-        # velocity 1 = 60000 cycles (very slow)
-        # velocity 10 = 6000 cycles (very fast)
-        delay_cycles = max(1000, int(60000 / velocity_level))
+        # Simple linear scale: Higher velocity = shorter delay  
+        # MUCH shorter delays to avoid CPU overload in Proteus
+        # velocity 1 = 1000 cycles (slow)
+        # velocity 10 = 100 cycles (fast)
+        delay_cycles = max(100, int(1000 / velocity_level))
         delay_cycles = min(65535, delay_cycles)  # Stay within 16-bit limit
         
         # MOV CX, delay_cycles
@@ -344,9 +345,9 @@ def generate_fixed_movement_code(sequence):
         
         print(f"Step {i+1}: Move {motor.upper()} from {start_pos}° to {target}° at velocity {velocity}")
         
-        # Calculate movement needed
+        # Calculate movement needed - REDUCED steps for faster movement
         angle_difference = abs(target - start_pos)
-        steps_needed = max(4, int(angle_difference / 10))  # Roughly 10 degrees per 4-step cycle
+        steps_needed = max(2, int(angle_difference / 45))  # Much fewer steps - 45 degrees per 2-step cycle
         
         port = motor_ports[motor]
         generate_stepper_movement(port, steps_needed, velocity)
