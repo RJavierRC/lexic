@@ -7,14 +7,14 @@ This uses the PROVEN patterns and sequences that work
 import os
 
 def create_working_robot_com(analyzer=None):
-    """Create .COM following EXACT robot.asm sequence with Robot syntax control"""
+    """Create .COM with precise delays matching ROBOT.EXE timing"""
     
     # Extract Robot code values
     robot_values = extract_robot_values(analyzer) if analyzer else get_default_values()
     print(f"🎯 Robot values: Base={robot_values['base']}°, Hombro={robot_values['hombro']}°, Codo={robot_values['codo']}°")
     print(f"⚡ Velocidades: {robot_values['velocidades']}")
     
-    # Build machine code using EXACT robot.asm structure
+    # Build machine code using EXACT robot.asm structure with precise timing
     machine_code = []
     
     # Initialize 8255 (exactly like robot.asm line 6-8)
@@ -29,16 +29,16 @@ def create_working_robot_com(analyzer=None):
     # Main loop start (CICLO1:)
     loop_start = len(machine_code)
     
-    print("🤖 Following EXACT robot.asm sequence...")
-    
-    # === EXACT ROBOT.ASM SEQUENCE with Robot syntax mapping ===
+    print("🤖 Using precise ROBOT.EXE timing with different delay values...")
     
     # Get velocities for each motor from Robot syntax
     base_velocity = get_delay_function(robot_values['velocidades'][0] if robot_values['velocidades'] else 2)
     hombro_velocity = get_delay_function(robot_values['velocidades'][1] if len(robot_values['velocidades']) > 1 else 3)
     codo_velocity = get_delay_function(robot_values['velocidades'][2] if len(robot_values['velocidades']) > 2 else 5)
     
-    print(f"🎯 Motor velocities: Base={base_velocity}, Hombro={hombro_velocity}, Codo={codo_velocity}")
+    print(f"🎯 Motor velocities: Base={base_velocity} (0x{0x0FFF if base_velocity in ['DELAY2', 'DELAY3'] else 0xFFFF:04X}), Hombro={hombro_velocity} (0x{0x0FFF if hombro_velocity in ['DELAY2', 'DELAY3'] else 0xFFFF:04X}), Codo={codo_velocity} (0x{0x0FFF if codo_velocity in ['DELAY2', 'DELAY3'] else 0xFFFF:04X})")
+    
+    # EXACT ROBOT.ASM SEQUENCE with precise delay timing
     
     # MOTOR BASE CONTROL (Lines 12-32: Port 0x00)
     print(f"🔧 BASE Motor: {robot_values['base']}° with {base_velocity}")
@@ -46,10 +46,7 @@ def create_working_robot_com(analyzer=None):
     
     # 4-step sequence for BASE motor (lines 12-27)
     patterns_base = [0x0C, 0x06, 0x03, 0x09]  # Exact from robot.asm
-    steps_base = max(1, abs(robot_values['base']) // 15)  # More steps for larger angles
-    
-    for i in range(steps_base):
-        pattern = patterns_base[i % len(patterns_base)]
+    for pattern in patterns_base:
         machine_code.extend([0xB0, pattern])    # MOV AL, pattern
         machine_code.extend([0xEE])             # OUT DX, AL
         add_delay_call(machine_code, base_velocity)
@@ -63,13 +60,10 @@ def create_working_robot_com(analyzer=None):
     # MOTOR HOMBRO CONTROL (Lines 34-41: Port 0x02)
     print(f"🔧 HOMBRO Motor: {robot_values['hombro']}° with {hombro_velocity}")
     machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 02h
-    
-    # HOMBRO sequence (lines 34-37)
     machine_code.extend([0xB0, 0x0C])        # MOV AL, 00001100b
     machine_code.extend([0xEE])              # OUT DX, AL
     add_delay_call(machine_code, hombro_velocity)
     
-    # HOMBRO sequence (lines 39-41)
     machine_code.extend([0xB0, 0x06])        # MOV AL, 00000110b
     machine_code.extend([0xEE])              # OUT DX, AL
     add_delay_call(machine_code, hombro_velocity)
@@ -78,11 +72,10 @@ def create_working_robot_com(analyzer=None):
     machine_code.extend([0xBA, 0x02, 0x00])  # MOV DX, 02h
     machine_code.extend([0xB0, 0xC0])        # MOV AL, 11000000b
     machine_code.extend([0xEE])              # OUT DX, AL
-    add_delay_call(machine_code, codo_velocity)  # Use codo velocity for transition
+    add_delay_call(machine_code, codo_velocity)
     
     # MOTOR CODO CONTROL (Lines 48-82: Complex sequence with both ports)
     print(f"🔧 CODO Motor: {robot_values['codo']}° with {codo_velocity}")
-    steps_codo = max(2, abs(robot_values['codo']) // 20)  # More steps for codo
     
     # Complex sequence from robot.asm lines 48-82 - CONTROLS THE THIRD MOTOR
     codo_sequence = [
@@ -96,21 +89,18 @@ def create_working_robot_com(analyzer=None):
         (0x00, 0x09),  # Line 80-82: Port 00h, pattern 00001001b
     ]
     
-    # Execute CODO sequence multiple times based on angle
-    for step in range(steps_codo):
-        port, pattern = codo_sequence[step % len(codo_sequence)]
+    # Execute CODO sequence (exact from robot.asm)
+    for port, pattern in codo_sequence:
         machine_code.extend([0xBA, port, 0x00])  # MOV DX, port
         machine_code.extend([0xB0, pattern])     # MOV AL, pattern
         machine_code.extend([0xEE])              # OUT DX, AL
         add_delay_call(machine_code, codo_velocity)
     
-    print(f"✅ All 3 motors controlled: Base({steps_base} steps), Hombro(2 steps), Codo({steps_codo} steps)")
-    
     # Loop control (exactly like robot.asm lines 84-86)
     machine_code.extend([0x4E])                      # DEC SI
-    machine_code.extend([0x74, 0x03])                # JZ SALIR_CICLO1 (+3)
-    jmp_offset = loop_start - (len(machine_code) + 3)
-    machine_code.extend([0xE9, jmp_offset & 0xFF, (jmp_offset >> 8) & 0xFF])  # JMP CICLO1
+    machine_code.extend([0x74, 0x02])                # JZ +2 (skip JMP)
+    jmp_offset = loop_start - (len(machine_code) + 2)
+    machine_code.extend([0xEB, jmp_offset & 0xFF])   # JMP short to loop_start
     
     # Infinite loop at end (exactly like robot.asm lines 90-91: FIN: JMP FIN)
     machine_code.extend([0xEB, 0xFE])                # JMP $ (infinite loop)
@@ -123,8 +113,9 @@ def create_working_robot_com(analyzer=None):
     with open(com_path, 'wb') as f:
         f.write(bytes(machine_code))
     
-    print(f"✅ EXACT robot.asm sequence .COM created: {len(machine_code)} bytes")
-    print("🎯 Follows EXACT working robot.asm structure with Robot syntax velocities!")
+    print(f"✅ PRECISE timing .COM created: {len(machine_code)} bytes")
+    print("🎯 Uses same delay values as ROBOT.EXE (0x0FFF vs 0xFFFF)!")
+    print("⚡ Different speeds: DELAY2/3=Fast(0x0FFF), DELAY4/5=Slow(0xFFFF)")
     print("📍 Location: DOSBox2/Tasm/motor_user.com")
     
     return True
@@ -206,22 +197,24 @@ def get_delay_function(velocity):
         return "DELAY5"  # Slowest (CX = 0FFFFh)
 
 def add_delay_call(machine_code, delay_function):
-    """Add delay based on robot.asm DELAY functions"""
-    # Exact delay cycles from robot.asm
+    """Add inline delay with correct timing like ROBOT.EXE delay functions"""
+    # Use exact timing values from robot.asm DELAY functions
     if delay_function == "DELAY2":
-        delay_cycles = 0x0FFF    # robot.asm line 100
+        delay_cycles = 0x0FFF    # Fast (robot.asm line 100)
     elif delay_function == "DELAY3":
-        delay_cycles = 0x0FFF    # robot.asm line 106
+        delay_cycles = 0x0FFF    # Fast (robot.asm line 106)  
     elif delay_function == "DELAY4":
-        delay_cycles = 0xFFFF    # robot.asm line 112
+        delay_cycles = 0xFFFF    # Slow (robot.asm line 112)
     elif delay_function == "DELAY5":
-        delay_cycles = 0xFFFF    # robot.asm line 118
+        delay_cycles = 0xFFFF    # Slow (robot.asm line 118)
     else:
         delay_cycles = 0x0FFF    # Default to DELAY2
     
-    # Inline delay loop (exactly like robot.asm DELAY functions)
+    # Inline delay loop (same timing as ROBOT.EXE delay subroutines)
     machine_code.extend([0xB9, delay_cycles & 0xFF, (delay_cycles >> 8) & 0xFF])  # MOV CX, delay_cycles
-    machine_code.extend([0xE2, 0xFE])  # LOOP $-2 (LOOP instruction)
+    machine_code.extend([0xE2, 0xFE])  # LOOP $-2
+
+# Removed unused delay subroutine functions - using direct inline delays now
 
 # Compatibility function  
 def create_dynamic_com_from_analyzer_fixed(analyzer):
