@@ -223,8 +223,8 @@ def generate_dynamic_machine_code(motor_values=None):
             velocidad_seg = 0.1
             
         secuencia = steps_forward if direccion_positiva else steps_backward
-        tiempo_por_paso = velocidad_seg / len(secuencia)
-        
+        tiempo_por_paso = velocidad_seg * 2 / len(secuencia)
+
         # MOV DX, port
         machine_code.extend([0xBA, port, 0x00])
         
@@ -288,7 +288,7 @@ def generate_dynamic_machine_code(motor_values=None):
                 print(f"{motor.upper()}: 0° → {valor}° en {velocidad_actual}s")
                 generar_movimiento_motor(puerto, True, velocidad_actual)
                 posiciones[motor] = valor
-                add_delay(0.2)  # Pausa entre motores
+              
                 
             elif valor == 0 and pos_actual > 0:
                 # Este caso se procesará en FASE 2
