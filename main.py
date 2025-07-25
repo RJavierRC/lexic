@@ -4,6 +4,7 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog
 import os
 import platform
 from robot_lexical_analyzer import RobotLexicalAnalyzer
+from robodk_mod_generator import RoboDKModGenerator
 
 class LineNumberText(tk.Frame):
     """Widget de texto con numeración de líneas"""
@@ -80,6 +81,7 @@ class LexicalAnalyzerGUI:
         # Variables
         self.current_file = None
         self.analyzer = RobotLexicalAnalyzer()
+        self.mod_generator = RoboDKModGenerator()
         
         # Configurar rutas para Windows
         self.dosbox_path = os.path.join(os.getcwd(), "DOSBox2")
@@ -153,6 +155,11 @@ class LexicalAnalyzerGUI:
                  font=('Arial', 11, 'bold'), width=8, bg='purple', fg='white',
                  relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
         
+        # NUEVO: Botón para generar .mod para RoboDK
+        tk.Button(button_frame, text="🤖 .MOD", command=self.generate_mod_file, 
+                 font=('Arial', 11, 'bold'), width=10, bg='darkgreen', fg='white',
+                 relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
+        
         tk.Button(button_frame, text="🧹 Limpiar", command=self.clear_all, 
                  font=('Arial', 11), width=10, relief='raised').pack(side=tk.LEFT, padx=3)
     
@@ -221,6 +228,7 @@ class LexicalAnalyzerGUI:
         analysis_menu.add_command(label="⚙️ Generar .EXE", command=self.generate_executable, accelerator="F6")
         analysis_menu.add_command(label="🎯 Para Proteus", command=self.generate_for_proteus, accelerator="F7")
         analysis_menu.add_command(label="📁 Generar .COM", command=self.generate_com_file, accelerator="F8")
+        analysis_menu.add_command(label="🤖 Generar .MOD", command=self.generate_mod_file, accelerator="F9")
         analysis_menu.add_separator()
         analysis_menu.add_command(label="🧹 Limpiar Todo", command=self.clear_all)
         
@@ -236,7 +244,7 @@ class LexicalAnalyzerGUI:
         self.root.bind('<F6>', lambda e: self.generate_executable())  # Atajo para compilar
         self.root.bind('<F7>', lambda e: self.generate_for_proteus())  # Atajo para Proteus
         self.root.bind('<F8>', lambda e: self.generate_com_file())  # Atajo para .COM
-        self.root.bind('<F7>', lambda e: self.generate_for_proteus())  # Atajo para Proteus
+        self.root.bind('<F9>', lambda e: self.generate_mod_file())  # Atajo para .MOD
     
     def new_file(self):
         """Crea un nuevo archivo"""
@@ -779,6 +787,134 @@ class LexicalAnalyzerGUI:
         except Exception as e:
             messagebox.showerror("Error", f"Error generando ASM dinámico:\n\n{str(e)}")
             self.update_status("❌ Error generando ASM dinámico")
+
+    def generate_mod_file(self):
+        """Genera archivo .mod para RoboDK desde sintaxis robótica"""
+        code = self.code_editor.get(1.0, tk.END).strip()
+        if not code:
+            messagebox.showerror("Error", "No hay código para generar archivo .mod")
+            return
+        
+        try:
+            # Solicitar nombre del archivo
+            program_name = tk.simpledialog.askstring(
+                "Archivo .mod para RoboDK", 
+                "Ingrese el nombre del archivo .mod:\n\n"
+                "Este archivo será compatible con RoboDK y podrá ser importado directamente",
+                initialvalue="robot_program"
+            )
+            
+            if not program_name:
+                return
+            
+            # Validar nombre
+            if not program_name.replace('_', '').replace('-', '').isalnum():
+                messagebox.showerror("Nombre Inválido", 
+                    "El nombre solo puede contener letras, números, guiones y guiones bajos")
+                return
+            
+            # Asegurar extensión .mod
+            if not program_name.endswith('.mod'):
+                program_name += '.mod'
+            
+            self.update_status(f"🤖 Generando {program_name} para RoboDK...")
+            
+            # Generar archivo .mod
+            success, message = self.mod_generator.generate_mod_file(code, program_name)
+            
+            if success:
+                # Mostrar mensaje de éxito con detalles
+                success_msg = (
+                    f"🤖 ¡ARCHIVO .MOD GENERADO PARA ROBODK!\n\n"
+                    f"📂 Archivo: {program_name}\n"
+                    f"📍 Ubicación: {os.getcwd()}\n"
+                    f"🔧 Formato: RAPID para RoboDK\n\n"
+                    f"🎯 INSTRUCCIONES DE USO:\n"
+                    f"1. Abrir RoboDK\n"
+                    f"2. Cargar robot (ABB IRB140 recomendado)\n"
+                    f"3. Importar programa: File → Load → {program_name}\n"
+                    f"4. Ejecutar simulación\n\n"
+                    f"✅ CARACTERÍSTICAS:\n"
+                    f"• Movimientos basados en tu sintaxis Robot\n"
+                    f"• Control de articulaciones individual\n"
+                    f"• Velocidades configurables\n"
+                    f"• Compatible con Robotiq 2F-85 Gripper\n\n"
+                    f"🤖 Los movimientos del robot reflejarán exactamente\n"
+                    f"los valores que definiste en tu código Robot!"
+                )
+                
+                # Preguntar si quiere ver el contenido
+                result = messagebox.askyesno("🎉 Archivo .mod Generado", 
+                    success_msg + "\n\n¿Deseas ver el contenido del archivo .mod generado?")
+                
+                if result:
+                    self.show_mod_content(program_name)
+                
+                self.update_status(f"✅ {program_name} generado exitosamente para RoboDK")
+                
+            else:
+                messagebox.showerror("❌ Error", f"Error generando archivo .mod:\n\n{message}")
+                self.update_status("❌ Error generando archivo .mod")
+                
+        except Exception as e:
+            messagebox.showerror("Error Inesperado", 
+                f"❌ Error durante la generación .mod:\n\n{str(e)}")
+            self.update_status("❌ Error inesperado en generación .mod")
+
+    def show_mod_content(self, filename):
+        """Muestra el contenido del archivo .mod generado"""
+        try:
+            file_path = os.path.join(os.getcwd(), filename)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Ventana para mostrar contenido
+            mod_window = tk.Toplevel(self.root)
+            mod_window.title(f"🤖 Contenido de {filename}")
+            mod_window.geometry("900x700")
+            
+            # Frame principal
+            main_frame = tk.Frame(mod_window)
+            main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            # Título
+            title_frame = tk.Frame(main_frame)
+            title_frame.pack(fill=tk.X, pady=(0, 10))
+            
+            tk.Label(title_frame, text=f"📄 Archivo .mod Generado para RoboDK", 
+                    font=('Arial', 14, 'bold')).pack(side=tk.LEFT)
+            tk.Label(title_frame, text=f"Compatible con RAPID", 
+                    font=('Arial', 10), fg='green').pack(side=tk.RIGHT)
+            
+            # Área de texto
+            text_area = scrolledtext.ScrolledText(main_frame, wrap=tk.NONE, 
+                                                font=('Courier New', 10),
+                                                bg='#f8f8f8', fg='black')
+            text_area.pack(fill=tk.BOTH, expand=True)
+            text_area.insert(1.0, content)
+            text_area.config(state=tk.DISABLED)
+            
+            # Botones
+            button_frame = tk.Frame(main_frame)
+            button_frame.pack(fill=tk.X, pady=(10, 0))
+            
+            def open_folder():
+                """Abre la carpeta donde está el archivo"""
+                try:
+                    if os.name == 'nt':  # Windows
+                        os.startfile(os.getcwd())
+                    elif os.name == 'posix':  # macOS/Linux
+                        os.system(f'open "{os.getcwd()}"')
+                except:
+                    messagebox.showinfo("📁 Ubicación", f"El archivo está en:\n{os.getcwd()}")
+            
+            tk.Button(button_frame, text="📁 Abrir Carpeta", command=open_folder,
+                     font=('Arial', 10), relief='raised').pack(side=tk.LEFT, padx=5)
+            tk.Button(button_frame, text="❌ Cerrar", command=mod_window.destroy,
+                     font=('Arial', 10), relief='raised').pack(side=tk.RIGHT)
+                     
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo mostrar el contenido:\n{str(e)}")
 
     def get_motor_value(self, component):
         """Extrae el valor de un componente específico del código analizado"""
