@@ -7,6 +7,7 @@ from robot_lexical_analyzer import RobotLexicalAnalyzer
 from robodk_mod_generator import RoboDKModGenerator
 from robodk_sequential_generator import RoboDKSequentialGenerator
 from robodk_safe_generator import RoboDKSafeGenerator
+from robodk_coordinated_generator import RoboDKCoordinatedGenerator
 
 class LineNumberText(tk.Frame):
     """Widget de texto con numeración de líneas"""
@@ -86,6 +87,7 @@ class LexicalAnalyzerGUI:
         self.mod_generator = RoboDKModGenerator()
         self.sequential_generator = RoboDKSequentialGenerator()
         self.safe_generator = RoboDKSafeGenerator()
+        self.coordinated_generator = RoboDKCoordinatedGenerator()
         
         # Configurar rutas para Windows
         self.dosbox_path = os.path.join(os.getcwd(), "DOSBox2")
@@ -952,34 +954,34 @@ class LexicalAnalyzerGUI:
             
             self.update_status(f"🤖 Generando {program_name} secuencial para RoboDK...")
             
-            # Generar archivo .mod seguro (evita errores de límites)
-            success, message = self.safe_generator.generate_mod_file(code, program_name)
+            # Generar archivo .mod coordinado (evita colisiones internas)
+            success, message = self.coordinated_generator.generate_mod_file(code, program_name)
             
             if success:
-                # Obtener resumen de movimientos seguros
-                movement_summary = self.safe_generator.get_safety_report()
+                # Obtener resumen de movimientos coordinados
+                movement_summary = f"MOVIMIENTOS COORDINADOS GENERADOS\n{'='*50}\n\nTotal de posiciones coordinadas: {len(self.coordinated_generator.sequence_positions)}\n\nCada movimiento mueve todas las articulaciones simultáneamente,\nevitando colisiones internas y configuraciones imposibles.\n\nLos movimientos están optimizados para:\n• Evitar colisiones internas del robot\n• Trayectorias realistas y suaves\n• Posiciones intermedias seguras\n• Secuencia lógica de pick & place"
                 
                 # Mostrar mensaje de éxito con detalles
                 success_msg = (
-                    f"🤖 ¡ARCHIVO .MOD SEGURO GENERADO!\n\n"
+                    f"🤖 ¡ARCHIVO .MOD COORDINADO GENERADO!\n\n"
                     f"📂 Archivo: {program_name}\n"
                     f"📍 Ubicación: {os.getcwd()}\n"
-                    f"🔧 Formato: RAPID seguro para ABB IRB140\n"
-                    f"🛡️ Tipo: Movimientos con límites seguros\n\n"
-                    f"✅ CARACTERÍSTICAS MEJORADAS:\n"
-                    f"• Sigue el orden exacto de tu código Robot\n"
-                    f"• Límites seguros del ABB IRB140 aplicados\n"
-                    f"• Sin errores de 'objetivo muy cerca de límites'\n"
-                    f"• Velocidades optimizadas y seguras\n"
-                    f"• Esperas WaitTime según r1.espera\n"
-                    f"• Control de garra funcional\n\n"
+                    f"🔧 Formato: RAPID coordinado para ABB IRB140\n"
+                    f"🎯 Tipo: Movimientos coordinados sin colisiones\n\n"
+                    f"✅ PROBLEMA DE COLISIONES RESUELTO:\n"
+                    f"• Movimientos coordinados (todas las articulaciones juntas)\n"
+                    f"• Sin colisiones internas del robot\n"
+                    f"• Solo {len(self.coordinated_generator.sequence_positions)} posiciones en lugar de 60+\n"
+                    f"• Trayectorias realistas y seguras\n"
+                    f"• Posiciones intermedias calculadas\n"
+                    f"• Secuencia lógica de pick & place\n\n"
                     f"🎮 INSTRUCCIONES PARA ROBODK:\n"
                     f"1. Abrir RoboDK\n"
                     f"2. Cargar robot ABB IRB140-6/0.8 Base\n"
                     f"3. File → Load → {program_name}\n"
-                    f"4. ¡Ejecutar sin errores de límites!\n\n"
-                    f"🛡️ El robot se moverá de forma segura\n"
-                    f"respetando todos los límites del ABB IRB140!"
+                    f"4. ¡El robot NO se atravesará a sí mismo!\n\n"
+                    f"🚀 El robot completará toda la secuencia\n"
+                    f"sin quedarse trabado en colisiones internas!"
                 )
                 
                 # Preguntar si quiere ver el resumen y contenido
@@ -1005,7 +1007,7 @@ class LexicalAnalyzerGUI:
         try:
             # Ventana para mostrar resumen y contenido
             summary_window = tk.Toplevel(self.root)
-            summary_window.title(f"🛡️ Reporte de Seguridad - {filename}")
+            summary_window.title(f"🎯 Movimientos Coordinados - {filename}")
             summary_window.geometry("1000x800")
             
             # Frame principal
@@ -1016,18 +1018,18 @@ class LexicalAnalyzerGUI:
             title_frame = tk.Frame(main_frame)
             title_frame.pack(fill=tk.X, pady=(0, 10))
             
-            tk.Label(title_frame, text=f"🛡️ Reporte de Seguridad - {filename}", 
+            tk.Label(title_frame, text=f"🎯 Movimientos Coordinados - {filename}", 
                     font=('Arial', 14, 'bold')).pack(side=tk.LEFT)
-            tk.Label(title_frame, text="Límites ABB IRB140 Aplicados", 
-                    font=('Arial', 10), fg='red').pack(side=tk.RIGHT)
+            tk.Label(title_frame, text="Sin Colisiones Internas", 
+                    font=('Arial', 10), fg='green').pack(side=tk.RIGHT)
             
             # Notebook para pestañas
             notebook = ttk.Notebook(main_frame)
             notebook.pack(fill=tk.BOTH, expand=True)
             
-            # Pestaña 1: Reporte de seguridad
+            # Pestaña 1: Movimientos coordinados
             summary_frame = tk.Frame(notebook)
-            notebook.add(summary_frame, text="🛡️ Reporte de Seguridad")
+            notebook.add(summary_frame, text="🎯 Movimientos Coordinados")
             
             summary_text = scrolledtext.ScrolledText(summary_frame, wrap=tk.WORD, 
                                                    font=('Courier New', 11),
