@@ -5,6 +5,7 @@ import os
 import platform
 from robot_lexical_analyzer import RobotLexicalAnalyzer
 from robodk_mod_generator import RoboDKModGenerator
+from robodk_sequential_generator import RoboDKSequentialGenerator
 
 class LineNumberText(tk.Frame):
     """Widget de texto con numeración de líneas"""
@@ -82,6 +83,7 @@ class LexicalAnalyzerGUI:
         self.current_file = None
         self.analyzer = RobotLexicalAnalyzer()
         self.mod_generator = RoboDKModGenerator()
+        self.sequential_generator = RoboDKSequentialGenerator()
         
         # Configurar rutas para Windows
         self.dosbox_path = os.path.join(os.getcwd(), "DOSBox2")
@@ -155,8 +157,8 @@ class LexicalAnalyzerGUI:
                  font=('Arial', 11, 'bold'), width=8, bg='purple', fg='white',
                  relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
         
-        # NUEVO: Botón para generar .mod para RoboDK
-        tk.Button(button_frame, text="🤖 .MOD", command=self.generate_mod_file, 
+        # NUEVO: Botón para generar .mod secuencial para RoboDK
+        tk.Button(button_frame, text="🤖 .MOD", command=self.generate_sequential_mod_file, 
                  font=('Arial', 11, 'bold'), width=10, bg='darkgreen', fg='white',
                  relief='raised', cursor='hand2').pack(side=tk.LEFT, padx=3)
         
@@ -228,7 +230,7 @@ class LexicalAnalyzerGUI:
         analysis_menu.add_command(label="⚙️ Generar .EXE", command=self.generate_executable, accelerator="F6")
         analysis_menu.add_command(label="🎯 Para Proteus", command=self.generate_for_proteus, accelerator="F7")
         analysis_menu.add_command(label="📁 Generar .COM", command=self.generate_com_file, accelerator="F8")
-        analysis_menu.add_command(label="🤖 Generar .MOD", command=self.generate_mod_file, accelerator="F9")
+        analysis_menu.add_command(label="🤖 Generar .MOD", command=self.generate_sequential_mod_file, accelerator="F9")
         analysis_menu.add_separator()
         analysis_menu.add_command(label="🧹 Limpiar Todo", command=self.clear_all)
         
@@ -244,7 +246,7 @@ class LexicalAnalyzerGUI:
         self.root.bind('<F6>', lambda e: self.generate_executable())  # Atajo para compilar
         self.root.bind('<F7>', lambda e: self.generate_for_proteus())  # Atajo para Proteus
         self.root.bind('<F8>', lambda e: self.generate_com_file())  # Atajo para .COM
-        self.root.bind('<F9>', lambda e: self.generate_mod_file())  # Atajo para .MOD
+        self.root.bind('<F9>', lambda e: self.generate_sequential_mod_file())  # Atajo para .MOD secuencial
     
     def new_file(self):
         """Crea un nuevo archivo"""
@@ -915,6 +917,181 @@ class LexicalAnalyzerGUI:
                      
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo mostrar el contenido:\n{str(e)}")
+
+    def generate_sequential_mod_file(self):
+        """Genera archivo .mod secuencial para RoboDK desde sintaxis robótica completa"""
+        code = self.code_editor.get(1.0, tk.END).strip()
+        if not code:
+            messagebox.showerror("Error", "No hay código para generar archivo .mod secuencial")
+            return
+        
+        try:
+            # Solicitar nombre del archivo
+            program_name = tk.simpledialog.askstring(
+                "Archivo .mod Secuencial para RoboDK", 
+                "Ingrese el nombre del archivo .mod:\n\n"
+                "Este archivo ejecutará los movimientos en el orden exacto\n"
+                "que aparecen en tu código Robot (pick & place completo)",
+                initialvalue="robot_sequence"
+            )
+            
+            if not program_name:
+                return
+            
+            # Validar nombre
+            if not program_name.replace('_', '').replace('-', '').isalnum():
+                messagebox.showerror("Nombre Inválido", 
+                    "El nombre solo puede contener letras, números, guiones y guiones bajos")
+                return
+            
+            # Asegurar extensión .mod
+            if not program_name.endswith('.mod'):
+                program_name += '.mod'
+            
+            self.update_status(f"🤖 Generando {program_name} secuencial para RoboDK...")
+            
+            # Generar archivo .mod secuencial
+            success, message = self.sequential_generator.generate_mod_file(code, program_name)
+            
+            if success:
+                # Obtener resumen de movimientos
+                movement_summary = self.sequential_generator.get_movement_summary()
+                
+                # Mostrar mensaje de éxito con detalles
+                success_msg = (
+                    f"🤖 ¡ARCHIVO .MOD SECUENCIAL GENERADO!\n\n"
+                    f"📂 Archivo: {program_name}\n"
+                    f"📍 Ubicación: {os.getcwd()}\n"
+                    f"🔧 Formato: RAPID secuencial para RoboDK\n"
+                    f"🎯 Tipo: Movimientos paso a paso\n\n"
+                    f"✅ CARACTERÍSTICAS:\n"
+                    f"• Sigue el orden exacto de tu código Robot\n"
+                    f"• Movimientos MoveAbsJ individuales\n"
+                    f"• Velocidades dinámicas según r1.velocidad\n"
+                    f"• Esperas WaitTime según r1.espera\n"
+                    f"• Control completo de garra\n\n"
+                    f"🎮 INSTRUCCIONES PARA ROBODK:\n"
+                    f"1. Abrir RoboDK\n"
+                    f"2. Cargar robot ABB IRB140\n"
+                    f"3. File → Load → {program_name}\n"
+                    f"4. ¡Ejecutar simulación!\n\n"
+                    f"🤖 El robot ejecutará exactamente la secuencia\n"
+                    f"de pick & place que programaste!"
+                )
+                
+                # Preguntar si quiere ver el resumen y contenido
+                result = messagebox.askyesno("🎉 Archivo .mod Secuencial Generado", 
+                    success_msg + "\n\n¿Deseas ver el resumen de movimientos y el archivo generado?")
+                
+                if result:
+                    self.show_sequential_summary(movement_summary, program_name)
+                
+                self.update_status(f"✅ {program_name} secuencial generado exitosamente")
+                
+            else:
+                messagebox.showerror("❌ Error", f"Error generando archivo .mod secuencial:\n\n{message}")
+                self.update_status("❌ Error generando archivo .mod secuencial")
+                
+        except Exception as e:
+            messagebox.showerror("Error Inesperado", 
+                f"❌ Error durante la generación .mod secuencial:\n\n{str(e)}")
+            self.update_status("❌ Error inesperado en generación .mod secuencial")
+
+    def show_sequential_summary(self, movement_summary, filename):
+        """Muestra el resumen de movimientos y contenido del archivo .mod secuencial"""
+        try:
+            # Ventana para mostrar resumen y contenido
+            summary_window = tk.Toplevel(self.root)
+            summary_window.title(f"🤖 Resumen de Movimientos - {filename}")
+            summary_window.geometry("1000x800")
+            
+            # Frame principal
+            main_frame = tk.Frame(summary_window)
+            main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            # Título
+            title_frame = tk.Frame(main_frame)
+            title_frame.pack(fill=tk.X, pady=(0, 10))
+            
+            tk.Label(title_frame, text=f"🤖 Análisis de Secuencia - {filename}", 
+                    font=('Arial', 14, 'bold')).pack(side=tk.LEFT)
+            tk.Label(title_frame, text="Movimientos Secuenciales RAPID", 
+                    font=('Arial', 10), fg='green').pack(side=tk.RIGHT)
+            
+            # Notebook para pestañas
+            notebook = ttk.Notebook(main_frame)
+            notebook.pack(fill=tk.BOTH, expand=True)
+            
+            # Pestaña 1: Resumen de movimientos
+            summary_frame = tk.Frame(notebook)
+            notebook.add(summary_frame, text="📊 Resumen de Movimientos")
+            
+            summary_text = scrolledtext.ScrolledText(summary_frame, wrap=tk.WORD, 
+                                                   font=('Courier New', 11),
+                                                   bg='#f0f8ff', fg='black')
+            summary_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            summary_text.insert(1.0, movement_summary)
+            summary_text.config(state=tk.DISABLED)
+            
+            # Pestaña 2: Código .mod generado
+            code_frame = tk.Frame(notebook)
+            notebook.add(code_frame, text="📄 Código .mod Generado")
+            
+            code_text = scrolledtext.ScrolledText(code_frame, wrap=tk.NONE, 
+                                                font=('Courier New', 10),
+                                                bg='#f8f8f8', fg='black')
+            code_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            # Cargar contenido del archivo
+            file_path = os.path.join(os.getcwd(), filename)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            code_text.insert(1.0, content)
+            code_text.config(state=tk.DISABLED)
+            
+            # Botones
+            button_frame = tk.Frame(main_frame)
+            button_frame.pack(fill=tk.X, pady=(10, 0))
+            
+            def open_folder():
+                """Abre la carpeta donde está el archivo"""
+                try:
+                    if os.name == 'nt':  # Windows
+                        os.startfile(os.getcwd())
+                    elif os.name == 'posix':  # macOS/Linux
+                        os.system(f'open "{os.getcwd()}"')
+                except:
+                    messagebox.showinfo("📁 Ubicación", f"El archivo está en:\n{os.getcwd()}")
+            
+            def copy_instructions():
+                """Copia las instrucciones de uso al portapapeles"""
+                instructions = f"""INSTRUCCIONES PARA USAR {filename} EN ROBODK:
+
+1. Abrir RoboDK
+2. Crear nueva estación o abrir estación existente
+3. Cargar robot ABB IRB140-6/0.8 Base
+4. Agregar Robotiq 2F-85 Gripper como herramienta
+5. File → Load → Program → {filename}
+6. El programa aparecerá en el árbol de proyecto
+7. Hacer clic derecho en el programa → Run
+8. ¡Ver la simulación del pick & place!
+
+NOTA: El robot ejecutará exactamente la secuencia que programaste 
+en tu código Robot, incluyendo velocidades y esperas."""
+                
+                summary_window.clipboard_clear()
+                summary_window.clipboard_append(instructions)
+                messagebox.showinfo("📋 Copiado", "Instrucciones copiadas al portapapeles")
+            
+            tk.Button(button_frame, text="📁 Abrir Carpeta", command=open_folder,
+                     font=('Arial', 10), relief='raised').pack(side=tk.LEFT, padx=5)
+            tk.Button(button_frame, text="📋 Copiar Instrucciones", command=copy_instructions,
+                     font=('Arial', 10), relief='raised').pack(side=tk.LEFT, padx=5)
+            tk.Button(button_frame, text="❌ Cerrar", command=summary_window.destroy,
+                     font=('Arial', 10), relief='raised').pack(side=tk.RIGHT)
+                     
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo mostrar el resumen:\n{str(e)}")
 
     def get_motor_value(self, component):
         """Extrae el valor de un componente específico del código analizado"""
