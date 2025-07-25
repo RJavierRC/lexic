@@ -6,6 +6,7 @@ import platform
 from robot_lexical_analyzer import RobotLexicalAnalyzer
 from robodk_mod_generator import RoboDKModGenerator
 from robodk_sequential_generator import RoboDKSequentialGenerator
+from robodk_safe_generator import RoboDKSafeGenerator
 
 class LineNumberText(tk.Frame):
     """Widget de texto con numeración de líneas"""
@@ -84,6 +85,7 @@ class LexicalAnalyzerGUI:
         self.analyzer = RobotLexicalAnalyzer()
         self.mod_generator = RoboDKModGenerator()
         self.sequential_generator = RoboDKSequentialGenerator()
+        self.safe_generator = RoboDKSafeGenerator()
         
         # Configurar rutas para Windows
         self.dosbox_path = os.path.join(os.getcwd(), "DOSBox2")
@@ -950,33 +952,34 @@ class LexicalAnalyzerGUI:
             
             self.update_status(f"🤖 Generando {program_name} secuencial para RoboDK...")
             
-            # Generar archivo .mod secuencial
-            success, message = self.sequential_generator.generate_mod_file(code, program_name)
+            # Generar archivo .mod seguro (evita errores de límites)
+            success, message = self.safe_generator.generate_mod_file(code, program_name)
             
             if success:
-                # Obtener resumen de movimientos
-                movement_summary = self.sequential_generator.get_movement_summary()
+                # Obtener resumen de movimientos seguros
+                movement_summary = self.safe_generator.get_safety_report()
                 
                 # Mostrar mensaje de éxito con detalles
                 success_msg = (
-                    f"🤖 ¡ARCHIVO .MOD SECUENCIAL GENERADO!\n\n"
+                    f"🤖 ¡ARCHIVO .MOD SEGURO GENERADO!\n\n"
                     f"📂 Archivo: {program_name}\n"
                     f"📍 Ubicación: {os.getcwd()}\n"
-                    f"🔧 Formato: RAPID secuencial para RoboDK\n"
-                    f"🎯 Tipo: Movimientos paso a paso\n\n"
-                    f"✅ CARACTERÍSTICAS:\n"
+                    f"🔧 Formato: RAPID seguro para ABB IRB140\n"
+                    f"🛡️ Tipo: Movimientos con límites seguros\n\n"
+                    f"✅ CARACTERÍSTICAS MEJORADAS:\n"
                     f"• Sigue el orden exacto de tu código Robot\n"
-                    f"• Movimientos MoveAbsJ individuales\n"
-                    f"• Velocidades dinámicas según r1.velocidad\n"
+                    f"• Límites seguros del ABB IRB140 aplicados\n"
+                    f"• Sin errores de 'objetivo muy cerca de límites'\n"
+                    f"• Velocidades optimizadas y seguras\n"
                     f"• Esperas WaitTime según r1.espera\n"
-                    f"• Control completo de garra\n\n"
+                    f"• Control de garra funcional\n\n"
                     f"🎮 INSTRUCCIONES PARA ROBODK:\n"
                     f"1. Abrir RoboDK\n"
-                    f"2. Cargar robot ABB IRB140\n"
+                    f"2. Cargar robot ABB IRB140-6/0.8 Base\n"
                     f"3. File → Load → {program_name}\n"
-                    f"4. ¡Ejecutar simulación!\n\n"
-                    f"🤖 El robot ejecutará exactamente la secuencia\n"
-                    f"de pick & place que programaste!"
+                    f"4. ¡Ejecutar sin errores de límites!\n\n"
+                    f"🛡️ El robot se moverá de forma segura\n"
+                    f"respetando todos los límites del ABB IRB140!"
                 )
                 
                 # Preguntar si quiere ver el resumen y contenido
@@ -1002,7 +1005,7 @@ class LexicalAnalyzerGUI:
         try:
             # Ventana para mostrar resumen y contenido
             summary_window = tk.Toplevel(self.root)
-            summary_window.title(f"🤖 Resumen de Movimientos - {filename}")
+            summary_window.title(f"🛡️ Reporte de Seguridad - {filename}")
             summary_window.geometry("1000x800")
             
             # Frame principal
@@ -1013,18 +1016,18 @@ class LexicalAnalyzerGUI:
             title_frame = tk.Frame(main_frame)
             title_frame.pack(fill=tk.X, pady=(0, 10))
             
-            tk.Label(title_frame, text=f"🤖 Análisis de Secuencia - {filename}", 
+            tk.Label(title_frame, text=f"🛡️ Reporte de Seguridad - {filename}", 
                     font=('Arial', 14, 'bold')).pack(side=tk.LEFT)
-            tk.Label(title_frame, text="Movimientos Secuenciales RAPID", 
-                    font=('Arial', 10), fg='green').pack(side=tk.RIGHT)
+            tk.Label(title_frame, text="Límites ABB IRB140 Aplicados", 
+                    font=('Arial', 10), fg='red').pack(side=tk.RIGHT)
             
             # Notebook para pestañas
             notebook = ttk.Notebook(main_frame)
             notebook.pack(fill=tk.BOTH, expand=True)
             
-            # Pestaña 1: Resumen de movimientos
+            # Pestaña 1: Reporte de seguridad
             summary_frame = tk.Frame(notebook)
-            notebook.add(summary_frame, text="📊 Resumen de Movimientos")
+            notebook.add(summary_frame, text="🛡️ Reporte de Seguridad")
             
             summary_text = scrolledtext.ScrolledText(summary_frame, wrap=tk.WORD, 
                                                    font=('Courier New', 11),
