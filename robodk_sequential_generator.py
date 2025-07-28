@@ -20,8 +20,10 @@ class RoboDKSequentialGenerator:
             'hombro': 0.0,
             'codo': 0.0,
             'muneca': 0.0,
-            'garra': 90.0,  # Garra abierta por defecto
-            'velocidad': 1
+            'inclinacion': 0.0,  # NUEVO: Eje 5
+            'garra': 0.0,        # Eje 6: 0=abierta
+            'velocidad': 150,    # NUEVO: Velocidad directa (v150)
+            'precision': 5       # NUEVO: Zona precisión (z5)
         }
         self.movement_sequence = []
         
@@ -175,16 +177,19 @@ MODULE MOD_MainProgram
                 # Determinar gripper basado en garra
                 gripper_state = "RobotiQ2F85Gripper(FullyClosed)" if state['garra'] < 50 else "RobotiQ2F85Gripper(FullyClosed)"
                 
-                # MAPEO CORRECTO DE ARTICULACIONES ABB IRB140:
-                # Eje 1: base, Eje 2: hombro, Eje 3: codo, Eje 4: muneca, Eje 5: 0, Eje 6: garra
+                # MAPEO CORRECTO DE ARTICULACIONES ABB IRB140 - SINTAXIS COMPLETA:
+                # Eje 1: base, Eje 2: hombro, Eje 3: codo, Eje 4: muneca, Eje 5: inclinacion, Eje 6: garra
                 eje1 = state['base']
                 eje2 = state['hombro'] 
                 eje3 = self._convert_codo_seguro(state['codo'])  # Convertir a rango seguro
                 eje4 = state['muneca']
-                eje5 = 0.0  # No usado
-                eje6 = self._convert_garra_segura(state['garra'])  # Garra en eje 6
+                eje5 = state['inclinacion']  # NUEVO: Eje 5 funcional
+                eje6 = state['garra']        # Eje 6: garra directa
                 
-                main_proc += f"        MoveAbsJ [[{eje1:.1f},{eje2:.1f},{eje3:.1f},{eje4:.1f},{eje5:.1f},{eje6:.1f}],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]],{velocity},z1,{gripper_state} \\WObj:=Frame2;\n"
+                # Zona de precisión
+                zona = self._get_precision_zone(state['precision'])
+                
+                main_proc += f"        MoveAbsJ [[{eje1:.1f},{eje2:.1f},{eje3:.1f},{eje4:.1f},{eje5:.1f},{eje6:.1f}],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]],{velocity},{zona},{gripper_state} \\WObj:=Frame2;\n"
                 
                 step += 1
                 
@@ -204,15 +209,16 @@ MODULE MOD_MainProgram
         return main_proc
     
     def _get_velocity_string(self, velocity):
-        """Convierte velocidad numérica a string RAPID - VELOCIDADES NOTORIAS"""
-        velocity_map = {
-            1: "v25",   # MUY MUY lenta (súper notoria)
-            2: "v75",   # Lenta  
-            3: "v150",  # Media
-            4: "v400",  # Rápida (súper notoria)
-            5: "v800"   # Muy rápida
-        }
-        return velocity_map.get(velocity, f"v{velocity * 50}")
+        """Convierte velocidad a string RAPID - VELOCIDADES DIRECTAS"""
+        # Ahora velocidad es directa: 25, 75, 150, 400, etc.
+        if isinstance(velocity, (int, float)) and velocity >= 25:
+            return f"v{int(velocity)}"
+        else:
+            # Mapeo legacy para compatibilidad
+            velocity_map = {
+                1: "v25", 2: "v75", 3: "v150", 4: "v400", 5: "v800"
+            }
+            return velocity_map.get(velocity, "v150")
     
     def _convert_codo_seguro(self, codo_value):
         """Convierte valor de codo a rango seguro ABB IRB140"""
@@ -227,16 +233,27 @@ MODULE MOD_MainProgram
     
     def _convert_garra_segura(self, garra_value):
         """Convierte valor de garra a ángulo seguro del eje 6"""
-        # Mapeo seguro para eje 6:
-        # garra = 90 → eje6 = 0 (abierta)
-        # garra = 20 → eje6 = -75 (cerrada)
-        if garra_value >= 80:
-            return 0.0      # Garra abierta
-        elif garra_value <= 30:
-            return -75.0    # Garra cerrada  
-        else:
-            # Interpolación lineal
-            return -(90 - garra_value) * 75 / 60
+        # SINTAXIS COMPLETA: garra ahora maneja valores directos
+        # Rango: -400° a +400° (como en los archivos originales)
+        if isinstance(garra_value, (int, float)):
+            # Limitar a rango seguro
+            if garra_value > 400:
+                return 400.0
+            elif garra_value < -400:
+                return -400.0
+            else:
+                return float(garra_value)
+        return 0.0  # Default abierta
+
+    def _get_precision_zone(self, precision_value):
+        """Convierte valor de precisión a zona RAPID"""
+        # precision = 1 → z1 (muy preciso)
+        # precision = 5 → z5 (normal) 
+        # precision = 10 → z10 (rápido)
+        if isinstance(precision_value, (int, float)):
+            zone_val = max(1, min(10, int(precision_value)))
+            return f"z{zone_val}"
+        return "z5"  # Default normal
     
     def get_movement_summary(self):
         """Obtiene resumen de los movimientos"""

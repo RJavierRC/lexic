@@ -6,8 +6,8 @@ ROBOT_KEYWORDS = {
     # Declaración de robot
     'Robot', 'robot',
     
-    # Componentes del brazo
-    'base', 'hombro', 'codo', 'garra', 'muneca', 'velocidad',
+    # Componentes del brazo - SINTAXIS COMPLETA
+    'base', 'hombro', 'codo', 'garra', 'muneca', 'inclinacion', 'velocidad', 'precision',
     
     # Comandos de movimiento (sintaxis antigua - mantenida para compatibilidad)
     'girai', 'giraf', 'abre', 'cierra', 'mueve', 'rotara', 'posicion',
@@ -33,7 +33,7 @@ ROBOT_KEYWORDS = {
 }
 
 # Componentes válidos del brazo robótico
-VALID_COMPONENTS = {'base', 'hombro', 'codo', 'garra', 'muneca', 'velocidad', 'repetir', 'inicio', 'fin', 'espera'}
+VALID_COMPONENTS = {'base', 'hombro', 'codo', 'garra', 'muneca', 'inclinacion', 'velocidad', 'precision', 'repetir', 'inicio', 'fin', 'espera'}
 
 # Definición de patrones de tokens usando expresiones regulares
 TOKEN_PATTERNS = [
@@ -99,11 +99,14 @@ LANGUAGE_INFO = {
     'description': 'Lenguaje de programación para control de brazo robótico',
     'file_extensions': ['.robot', '.arm', '.rb', '.txt'],
     'components': [
-        'base - Componente base del brazo robótico',
-        'hombro - Articulación del hombro',
-        'codo - Articulación del codo',
-        'garra - Efector final (pinza)',
-        'muneca - Articulación de la muñeca'
+        'base - Rotación horizontal (eje 1) -180° a +180°',
+        'hombro - Elevación brazo (eje 2) -90° a +110°',
+        'codo - Articulación intermedia (eje 3) -230° a +50°',
+        'muneca - Rotación antebrazo (eje 4) -200° a +200°',
+        'inclinacion - Inclinación garra (eje 5) -120° a +120°',
+        'garra - Rotación final garra (eje 6) -400° a +400°',
+        'velocidad - Velocidad robot v25 a v800',
+        'precision - Zona precisión z1 (preciso) a z10 (rápido)'
     ],
     'commands': [
         'girai - Girar a la izquierda (grados)',
