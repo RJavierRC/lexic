@@ -175,8 +175,16 @@ MODULE MOD_MainProgram
                 # Determinar gripper basado en garra
                 gripper_state = "RobotiQ2F85Gripper(FullyClosed)" if state['garra'] < 50 else "RobotiQ2F85Gripper(FullyClosed)"
                 
-                # Generar MoveAbsJ con estado completo
-                main_proc += f"        MoveAbsJ [[{state['base']:.6f},{state['hombro']:.6f},{state['codo']:.6f},{state['muneca']:.6f},{self._get_gripper_angle(state['garra'])},-0.000000],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]],{velocity},z1,{gripper_state} \\WObj:=Frame2;\n"
+                # MAPEO CORRECTO DE ARTICULACIONES ABB IRB140:
+                # Eje 1: base, Eje 2: hombro, Eje 3: codo, Eje 4: muneca, Eje 5: 0, Eje 6: garra
+                eje1 = state['base']
+                eje2 = state['hombro'] 
+                eje3 = self._convert_codo_seguro(state['codo'])  # Convertir a rango seguro
+                eje4 = state['muneca']
+                eje5 = 0.0  # No usado
+                eje6 = self._convert_garra_segura(state['garra'])  # Garra en eje 6
+                
+                main_proc += f"        MoveAbsJ [[{eje1:.1f},{eje2:.1f},{eje3:.1f},{eje4:.1f},{eje5:.1f},{eje6:.1f}],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]],{velocity},z1,{gripper_state} \\WObj:=Frame2;\n"
                 
                 step += 1
                 
@@ -196,24 +204,39 @@ MODULE MOD_MainProgram
         return main_proc
     
     def _get_velocity_string(self, velocity):
-        """Convierte velocidad numérica a string RAPID"""
+        """Convierte velocidad numérica a string RAPID - VELOCIDADES NOTORIAS"""
         velocity_map = {
-            1: "v50",   # Muy lenta
-            2: "v100",  # Lenta
-            3: "v200",  # Media
-            4: "v500",  # Rápida
-            5: "v1000"  # Muy rápida
+            1: "v25",   # MUY MUY lenta (súper notoria)
+            2: "v75",   # Lenta  
+            3: "v150",  # Media
+            4: "v400",  # Rápida (súper notoria)
+            5: "v800"   # Muy rápida
         }
         return velocity_map.get(velocity, f"v{velocity * 50}")
     
-    def _get_gripper_angle(self, garra_value):
-        """Convierte valor de garra a ángulo de quinta articulación"""
-        # Si garra es baja (cerrada), usar ángulo negativo
-        # Si garra es alta (abierta), usar ángulo positivo
-        if garra_value < 50:
-            return f"{-abs(garra_value):.6f}"  # Cerrada
+    def _convert_codo_seguro(self, codo_value):
+        """Convierte valor de codo a rango seguro ABB IRB140"""
+        # Rango seguro codo: -230° a +50°
+        # Si valor es positivo, convertir a negativo para estar en rango seguro
+        if codo_value > 50:
+            return -(codo_value)  # Convertir a negativo
+        elif codo_value < -230:
+            return -230  # Limitar a mínimo
         else:
-            return f"{garra_value:.6f}"        # Abierta
+            return codo_value if codo_value <= 0 else -codo_value
+    
+    def _convert_garra_segura(self, garra_value):
+        """Convierte valor de garra a ángulo seguro del eje 6"""
+        # Mapeo seguro para eje 6:
+        # garra = 90 → eje6 = 0 (abierta)
+        # garra = 20 → eje6 = -75 (cerrada)
+        if garra_value >= 80:
+            return 0.0      # Garra abierta
+        elif garra_value <= 30:
+            return -75.0    # Garra cerrada  
+        else:
+            # Interpolación lineal
+            return -(90 - garra_value) * 75 / 60
     
     def get_movement_summary(self):
         """Obtiene resumen de los movimientos"""
