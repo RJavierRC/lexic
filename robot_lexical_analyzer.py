@@ -1,14 +1,16 @@
 import re
 from robot_tokens import TOKEN_PATTERNS, ROBOT_KEYWORDS, get_token_type, LANGUAGE_INFO, VALID_COMPONENTS
 
-# Definir rangos válidos para cada componente robótico
+# Definir rangos válidos para cada componente robótico - SINTAXIS COMPLETA
 COMPONENT_RANGES = {
-    'base': {'min': 0, 'max': 360, 'description': 'gira de 0 a 360°'},
-    'hombro': {'min': 0, 'max': 180, 'description': 'gira de 0 a 180°'},
-    'codo': {'min': 0, 'max': 180, 'description': 'gira de 0 a 180°'},
-    'garra': {'min': 0, 'max': 90, 'description': 'abre y cierra de 0 a 90°'},
-    'muneca': {'min': 0, 'max': 360, 'description': 'gira de 0 a 360°'},
-    'velocidad': {'min': 0.1, 'max': 10.0, 'description': 'tiempo por movimiento de 0.1 a 10 segundos'},
+    'base': {'min': -180, 'max': 180, 'description': 'rotación horizontal -180° a +180°'},
+    'hombro': {'min': -90, 'max': 110, 'description': 'elevación brazo -90° a +110°'},
+    'codo': {'min': -230, 'max': 50, 'description': 'articulación intermedia -230° a +50°'},
+    'muneca': {'min': -200, 'max': 200, 'description': 'rotación antebrazo -200° a +200°'},
+    'inclinacion': {'min': -120, 'max': 120, 'description': 'inclinación garra (eje 5) -120° a +120°'},
+    'garra': {'min': -400, 'max': 400, 'description': 'rotación final garra -400° a +400°'},
+    'velocidad': {'min': 25, 'max': 800, 'description': 'velocidad robot v25 a v800'},
+    'precision': {'min': 1, 'max': 10, 'description': 'zona precisión z1 (preciso) a z10 (rápido)'},
     'repetir': {'min': 1, 'max': 100, 'description': 'número de repeticiones de 1 a 100'},
     'espera': {'min': 0.1, 'max': 60.0, 'description': 'tiempo de espera de 0.1 a 60 segundos'}
 }
