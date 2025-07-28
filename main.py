@@ -84,7 +84,7 @@ class LexicalAnalyzerGUI:
         # Variables
         self.current_file = None
         self.analyzer = RobotLexicalAnalyzer()
-        self.mod_generator = RoboDKModGenerator()
+        self.mod_generator = RoboDKSequentialGenerator()
         self.sequential_generator = RoboDKSequentialGenerator()
         self.safe_generator = RoboDKSafeGenerator()
         self.coordinated_generator = RoboDKCoordinatedGenerator()
@@ -954,16 +954,16 @@ class LexicalAnalyzerGUI:
             
             self.update_status(f"🤖 Generando {program_name} secuencial para RoboDK...")
             
-            # Generar archivo .mod coordinado (evita colisiones internas)
-            success, message = self.coordinated_generator.generate_mod_file(code, program_name)
+            # Generar archivo .mod secuencial con sintaxis completa
+            success, message = self.sequential_generator.generate_mod_file(code, program_name)
             
             if success:
-                # Obtener resumen de movimientos coordinados
-                movement_summary = f"MOVIMIENTOS COORDINADOS GENERADOS\n{'='*50}\n\nTotal de posiciones coordinadas: {len(self.coordinated_generator.sequence_positions)}\n\nCada movimiento mueve todas las articulaciones simultáneamente,\nevitando colisiones internas y configuraciones imposibles.\n\nLos movimientos están optimizados para:\n• Evitar colisiones internas del robot\n• Trayectorias realistas y suaves\n• Posiciones intermedias seguras\n• Secuencia lógica de pick & place"
+                # Obtener resumen de movimientos secuenciales
+                movement_summary = self.sequential_generator.get_movement_summary()
                 
                 # Mostrar mensaje de éxito con detalles
                 success_msg = (
-                    f"🤖 ¡ARCHIVO .MOD COORDINADO GENERADO!\n\n"
+                    f"🤖 ¡ARCHIVO .MOD SECUENCIAL GENERADO!\n\n"
                     f"📂 Archivo: {program_name}\n"
                     f"📍 Ubicación: {os.getcwd()}\n"
                     f"🔧 Formato: RAPID coordinado para ABB IRB140\n"
