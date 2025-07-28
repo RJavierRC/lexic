@@ -115,6 +115,9 @@ class RoboDKSequentialGenerator:
     def generate_mod_file(self, code, output_filename="robot_program.mod"):
         """Genera archivo .mod secuencial para RoboDK"""
         
+        # RESETEAR ESTADO para nueva generación
+        self._reset_generator_state()
+        
         # Analizar código
         tokens, errors = self.analyze_robot_code(code)
         
@@ -303,6 +306,28 @@ MODULE MOD_MainProgram
                     self.movement_sequence.append(movement.copy())
         
         # Reset repetition state
+        self.current_repetition = None
+    
+    def _reset_generator_state(self):
+        """Resetea el estado del generador para una nueva ejecución"""
+        # Limpiar secuencia de movimientos anterior
+        self.movement_sequence = []
+        
+        # Resetear estado inicial del robot
+        self.current_state = {
+            'base': 0.0,
+            'hombro': 0.0,
+            'codo': 0.0,
+            'muneca': 0.0,
+            'inclinacion': 0.0,  # Eje 5
+            'garra': 0.0,        # Eje 6: 0=abierta
+            'velocidad': 150,    # Velocidad directa (v150)
+            'precision': 5,      # Zona precisión (z5)
+            'repetir': 1         # Repeticiones
+        }
+        
+        # Resetear repeticiones
+        self.repetition_stack = []
         self.current_repetition = None
     
     def get_movement_summary(self):
