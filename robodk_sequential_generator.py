@@ -23,9 +23,12 @@ class RoboDKSequentialGenerator:
             'inclinacion': 0.0,  # NUEVO: Eje 5
             'garra': 0.0,        # Eje 6: 0=abierta
             'velocidad': 150,    # NUEVO: Velocidad directa (v150)
-            'precision': 5       # NUEVO: Zona precisión (z5)
+            'precision': 5,      # NUEVO: Zona precisión (z5)
+            'repetir': 1         # NUEVO: Repeticiones
         }
         self.movement_sequence = []
+        self.repetition_stack = []  # Para manejar repeticiones anidadas
+        self.current_repetition = None
         
     def analyze_robot_code(self, code):
         """Analiza el código y extrae la secuencia de movimientos"""
@@ -67,8 +70,8 @@ class RoboDKSequentialGenerator:
             if not line or line.startswith('#') or line.startswith('//'):
                 continue
                 
-            # Buscar patrón: robot.componente = valor
-            pattern = r'(\w+)\.(\w+)\s*=\s*(\w+)'
+            # Buscar patrón: robot.componente = valor (incluyendo números negativos)
+            pattern = r'(\w+)\.(\w+)\s*=\s*(-?\w+\.?\w*)'
             match = re.match(pattern, line)
             
             if match:
@@ -84,7 +87,16 @@ class RoboDKSequentialGenerator:
                             'type': 'wait',
                             'time': float(value)
                         })
-                    elif component in ['base', 'hombro', 'codo', 'muneca', 'garra']:
+                    elif component == 'repetir':
+                        # Procesar repeticiones - NUEVO
+                        repetitions = int(value)
+                        self.current_state['repetir'] = repetitions
+                        # Marcar inicio de secuencia a repetir
+                        self._mark_repetition_start(repetitions)
+                    elif component == 'precision':
+                        # Actualizar zona de precisión - NUEVO
+                        self.current_state['precision'] = int(value)
+                    elif component in ['base', 'hombro', 'codo', 'muneca', 'inclinacion', 'garra']:
                         # Actualizar estado y agregar movimiento
                         old_value = self.current_state[component]
                         new_value = float(value)
@@ -105,6 +117,9 @@ class RoboDKSequentialGenerator:
         
         # Analizar código
         tokens, errors = self.analyze_robot_code(code)
+        
+        # Aplicar repeticiones al final
+        self._apply_repetitions()
         
         # Generar timestamp
         timestamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -199,6 +214,10 @@ MODULE MOD_MainProgram
                 main_proc += f"        WaitTime {movement['time']};\n"
                 step += 1
             
+            elif movement['type'] == 'comment':
+                # Generar comentario de repetición
+                main_proc += f"        ! {movement['text']}\n"
+            
             main_proc += "\n"
         
         main_proc += f"""        ! === FIN DE SECUENCIA ===
@@ -254,6 +273,37 @@ MODULE MOD_MainProgram
             zone_val = max(1, min(10, int(precision_value)))
             return f"z{zone_val}"
         return "z5"  # Default normal
+        
+    def _mark_repetition_start(self, repetitions):
+        """Marca el inicio de una secuencia a repetir"""
+        self.current_repetition = {
+            'count': repetitions,
+            'start_index': len(self.movement_sequence),
+            'sequence': []
+        }
+    
+    def _apply_repetitions(self):
+        """Aplica las repeticiones a los movimientos capturados"""
+        if self.current_repetition and self.current_repetition['count'] > 1:
+            # Obtener movimientos desde el marcador
+            start_idx = self.current_repetition['start_index']
+            repeated_sequence = self.movement_sequence[start_idx:]
+            
+            # Duplicar la secuencia según repeticiones
+            for rep in range(self.current_repetition['count'] - 1):
+                # Agregar comentario de repetición
+                comment_movement = {
+                    'type': 'comment',
+                    'text': f"=== REPETICIÓN {rep + 2} de {self.current_repetition['count']} ==="
+                }
+                self.movement_sequence.append(comment_movement)
+                
+                # Duplicar movimientos
+                for movement in repeated_sequence:
+                    self.movement_sequence.append(movement.copy())
+        
+        # Reset repetition state
+        self.current_repetition = None
     
     def get_movement_summary(self):
         """Obtiene resumen de los movimientos"""
@@ -267,6 +317,8 @@ MODULE MOD_MainProgram
                 summary += f"{i}. Mover {movement['component']}: {movement['from']}° → {movement['to']}° (v={movement['velocity']})\n"
             elif movement['type'] == 'wait':
                 summary += f"{i}. Esperar: {movement['time']} segundos\n"
+            elif movement['type'] == 'comment':
+                summary += f"{i}. {movement['text']}\n"
         
         return summary
 
